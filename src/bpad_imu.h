@@ -110,7 +110,15 @@ public:
     _biasGY = sumGY / samples;
     _biasGZ = sumGZ / samples;
 
+    _yaw = 0.0f;
+    _lastAttitudeUs = micros();
+
     return true;
+  }
+
+  void resetYaw(float angle = 0.0f) {
+    _yaw = angle;
+    _lastAttitudeUs = micros();
   }
 
   void setOrientationOffset(int16_t degrees) {
@@ -136,6 +144,7 @@ private:
 
   float _biasAX = 0.0f, _biasAY = 0.0f, _biasAZ = 0.0f;
   float _biasGX = 0.0f, _biasGY = 0.0f, _biasGZ = 0.0f;
+  uint32_t _lastAttitudeUs = 0;
 
   void applyOrientationAndAttitude(float rawAx, float rawAy, float rawAz,
                                    float rawGx, float rawGy, float rawGz) {
@@ -181,6 +190,23 @@ private:
 
     _roll  = atan2f(curAY, curAZ) * (180.0f / (float)M_PI);
     _pitch = atan2f(-curAX, sqrtf(curAY * curAY + curAZ * curAZ)) * (180.0f / (float)M_PI);
+
+    // Compute Relative Yaw by integrating Gyro Z over time
+    uint32_t nowUs = micros();
+    if (_lastAttitudeUs > 0) {
+      float dt = (float)(nowUs - _lastAttitudeUs) * 1e-6f;
+      if (dt > 0.0f && dt < 0.5f) {
+        float gz = gyroZ();
+        // Deadband filter to prevent drift from stationary noise (±0.6 deg/s)
+        if (fabsf(gz) >= 0.6f) {
+          _yaw += gz * dt;
+          // Wrap yaw between -180.0 and +180.0 degrees
+          if (_yaw > 180.0f)  _yaw -= 360.0f;
+          if (_yaw < -180.0f) _yaw += 360.0f;
+        }
+      }
+    }
+    _lastAttitudeUs = nowUs;
   }
 
   // --- ICM-42607-P Implementation ---
