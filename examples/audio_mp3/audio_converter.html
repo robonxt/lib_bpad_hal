@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bpad Audio Converter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #0f1117; color: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+    .card { background: #181b24; border: 1px solid #282d3d; border-radius: 10px; width: 100%; max-width: 540px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    h1 { font-size: 1.25rem; font-weight: 600; }
+    p.sub { font-size: 0.825rem; color: #8b949e; margin-top: 2px; }
+    .dropzone { border: 1.5px dashed #30364d; border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; color: #8b949e; font-size: 0.875rem; transition: 0.15s; }
+    .dropzone:hover, .dropzone.dragover { border-color: #3b82f6; background: #1e2538; color: #e2e8f0; }
+    .dropzone span { color: #3b82f6; font-weight: 500; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 0.72rem; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.4px; }
+    select { background: #0f1117; border: 1px solid #282d3d; color: #e2e8f0; padding: 7px 10px; border-radius: 6px; font-size: 0.85rem; outline: none; }
+    select:focus { border-color: #3b82f6; }
+    .checks { grid-column: span 2; display: flex; flex-direction: column; gap: 6px; }
+    .check { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #8b949e; cursor: pointer; }
+    .check input { accent-color: #3b82f6; }
+    .stats { display: none; background: #0f1117; border: 1px solid #282d3d; border-radius: 6px; padding: 10px 14px; font-size: 0.8rem; flex-direction: column; gap: 4px; }
+    .row { display: flex; justify-content: space-between; }
+    .row span:first-child { color: #8b949e; }
+    .row span:last-child { font-family: ui-monospace, monospace; font-weight: 500; }
+    audio { width: 100%; height: 30px; margin-top: 6px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { flex: 1; min-width: 120px; background: #3b82f6; color: #fff; border: 0; padding: 8px 12px; border-radius: 6px; font-size: 0.825rem; font-weight: 500; cursor: pointer; transition: 0.15s; }
+    button:hover { background: #2563eb; }
+    button.sec { background: #282d3d; }
+    button.sec:hover { background: #353b50; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div>
+    <h1>bpad Audio Converter</h1>
+    <p class="sub">Convert audio files to C headers for bpad.</p>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    Drop audio file here or <span>Browse</span>
+    <input type="file" id="fileInput" accept="audio/*" style="display:none">
+  </div>
+
+  <div class="grid">
+    <div class="field">
+      <label for="sampleRate">Sample Rate</label>
+      <select id="sampleRate">
+        <option value="8000" selected>8000 Hz (bpad185, Proto 1/3)</option>
+        <option value="4000">4000 Hz (Proto 2)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="gain">Gain</label>
+      <select id="gain">
+        <option value="0.8" selected>0.8x (Default)</option>
+        <option value="1.0">1.0x (Max)</option>
+        <option value="0.6">0.6x (Low)</option>
+      </select>
+    </div>
+
+    <div class="checks">
+      <label class="check">
+        <input type="checkbox" id="speakerOptimize" checked> Speaker Optimization (EQ & Compression)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="lowpass" checked> Anti-Aliasing Filter
+      </label>
+    </div>
+  </div>
+
+  <div class="stats" id="stats">
+    <div class="row"><span>File:</span><span id="statName">-</span></div>
+    <div class="row"><span>Duration:</span><span id="statDur">-</span></div>
+    <div class="row"><span>Rate:</span><span id="statRate">8000 Hz Mono</span></div>
+    <div class="row"><span>Size:</span><span id="statSize">-</span></div>
+    <audio id="player" controls style="display:none"></audio>
+  </div>
+
+  <div class="actions">
+    <button id="btnHeader" disabled>Download test_audio.h</button>
+    <button id="btnWav" class="sec" disabled>Download .WAV</button>
+    <button id="btnCopy" class="sec" disabled>Copy Array</button>
+  </div>
+</div>
+
+<script>
+  let wavBlob = null, headerStr = "", audioCtx = null, cachedBuf = null, fileName = "";
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const rateSelect = document.getElementById('sampleRate');
+  const gainSelect = document.getElementById('gain');
+  const speakerCheck = document.getElementById('speakerOptimize');
+  const lowpassCheck = document.getElementById('lowpass');
+
+  const stats = document.getElementById('stats');
+  const statName = document.getElementById('statName');
+  const statDur = document.getElementById('statDur');
+  const statRate = document.getElementById('statRate');
+  const statSize = document.getElementById('statSize');
+  const player = document.getElementById('player');
+
+  const btnHeader = document.getElementById('btnHeader');
+  const btnWav = document.getElementById('btnWav');
+  const btnCopy = document.getElementById('btnCopy');
+
+  dropzone.onclick = () => fileInput.click();
+  fileInput.onchange = (e) => e.target.files.length && loadFile(e.target.files[0]);
+  dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('dragover'); };
+  dropzone.ondragleave = () => dropzone.classList.remove('dragover');
+  dropzone.ondrop = (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    e.dataTransfer.files.length && loadFile(e.dataTransfer.files[0]);
+  };
+
+  rateSelect.onchange = gainSelect.onchange = speakerCheck.onchange = lowpassCheck.onchange = () => render();
+
+  async function loadFile(file) {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    fileName = file.name;
+    statName.textContent = file.name;
+    const buf = await file.arrayBuffer();
+    try {
+      cachedBuf = await audioCtx.decodeAudioData(buf);
+      await render();
+    } catch (e) {
+      alert("Error decoding audio: " + e.message);
+    }
+  }
+
+  async function render() {
+    if (!cachedBuf) return;
+    try {
+      const rate = parseInt(rateSelect.value, 10);
+      const gain = parseFloat(gainSelect.value);
+      const opt = speakerCheck.checked, lp = lowpassCheck.checked;
+
+      const offline = new OfflineAudioContext(1, Math.ceil(cachedBuf.duration * rate), rate);
+      const src = offline.createBufferSource();
+      src.buffer = cachedBuf;
+      let node = src;
+
+      if (opt) {
+        const hp = offline.createBiquadFilter();
+        hp.type = 'highpass'; hp.frequency.value = 180; hp.Q.value = 0.707;
+        node.connect(hp); node = hp;
+
+        const eq = offline.createBiquadFilter();
+        eq.type = 'peaking'; eq.frequency.value = Math.min(2500, rate * 0.4); eq.gain.value = 3.0;
+        node.connect(eq); node = eq;
+
+        const comp = offline.createDynamicsCompressor();
+        comp.threshold.value = -18; comp.ratio.value = 3; comp.attack.value = 0.003; comp.release.value = 0.15;
+        node.connect(comp); node = comp;
+      }
+
+      if (lp) {
+        const f = offline.createBiquadFilter();
+        f.type = 'lowpass'; f.frequency.value = rate * 0.45; f.Q.value = 0.707;
+        node.connect(f); node = f;
+      }
+
+      const g = offline.createGain();
+      g.gain.value = gain;
+      node.connect(g);
+      g.connect(offline.destination);
+
+      src.start(0);
+      const res = await offline.startRendering();
+      const pcm = res.getChannelData(0);
+      const bytes = encodeWAV(pcm, rate);
+      wavBlob = new Blob([bytes], { type: 'audio/wav' });
+      headerStr = generateHeader(bytes, fileName, rate);
+
+      statDur.textContent = cachedBuf.duration.toFixed(2) + 's';
+      statRate.textContent = rate + ' Hz Mono';
+      statSize.textContent = (bytes.length / 1024).toFixed(1) + ' KB (' + bytes.length + ' B)';
+
+      player.src = URL.createObjectURL(wavBlob);
+      player.style.display = 'block';
+      stats.style.display = 'flex';
+
+      btnHeader.disabled = btnWav.disabled = btnCopy.disabled = false;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function encodeWAV(samples, rate) {
+    const len = samples.length;
+    const buf = new ArrayBuffer(44 + len * 2);
+    const v = new DataView(buf);
+
+    writeStr(v, 0, 'RIFF');
+    v.setUint32(4, 36 + len * 2, true);
+    writeStr(v, 8, 'WAVEfmt ');
+    v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true);
+    v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true);
+    v.setUint32(28, rate * 2, true);
+    v.setUint16(32, 2, true);
+    v.setUint16(34, 16, true);
+    writeStr(v, 36, 'data');
+    v.setUint32(40, len * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < len; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      v.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return new Uint8Array(buf);
+  }
+
+  function writeStr(v, offset, s) {
+    for (let i = 0; i < s.length; i++) v.setUint8(offset + i, s.charCodeAt(i));
+  }
+
+  function generateHeader(bytes, name, rate) {
+    let out = `// Source: ${name} | ${rate} Hz Mono 16-bit PCM | ${bytes.length} bytes\n#pragma once\n#include <Arduino.h>\n\nconst uint8_t audio_data[] PROGMEM = {\n`;
+    for (let i = 0; i < bytes.length; i += 16) {
+      out += '  ';
+      const chunk = bytes.slice(i, i + 16);
+      for (let j = 0; j < chunk.length; j++) {
+        out += '0x' + chunk[j].toString(16).padStart(2, '0').toUpperCase();
+        if (i + j < bytes.length - 1) out += ', ';
+      }
+      out += '\n';
+    }
+    out += `};\n\nconst uint32_t audio_data_len = ${bytes.length};\n`;
+    return out;
+  }
+
+  btnHeader.onclick = () => save(new Blob([headerStr], { type: 'text/plain' }), 'test_audio.h');
+  btnWav.onclick = () => wavBlob && save(wavBlob, 'converted_audio.wav');
+  btnCopy.onclick = async () => {
+    await navigator.clipboard.writeText(headerStr);
+    btnCopy.textContent = 'Copied!';
+    setTimeout(() => btnCopy.textContent = 'Copy Array', 1500);
+  };
+
+  function save(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+  }
+</script>
+
+</body>
+</html>
