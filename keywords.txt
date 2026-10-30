@@ -28,6 +28,7 @@ bpadAudioBackend	KEYWORD1
 bpadHapticsBackend	KEYWORD1
 bpadIMUBackend	KEYWORD1
 bpadStorageBackend	KEYWORD1
+bpadMotor	KEYWORD1
 
 bpad185	KEYWORD2
 defaultBoard	KEYWORD2

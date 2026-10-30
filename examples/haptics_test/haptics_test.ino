@@ -1,7 +1,11 @@
 // =============================================================================
 //  haptics_test.ino — bpad_hal haptics test
 // =============================================================================
-//  Pulses each of the 4 haptic motors one at a time on bpad 185 (MCP4728 DAC 0x60).
+//  Tests all 4 vibration motors on bpad 185 (MCP4728 DAC 0x60 in X-format):
+//    Ch 0: Bottom-Left  (White wires)
+//    Ch 1: Bottom-Right (Black wires)
+//    Ch 2: Top-Left     (Red wires)
+//    Ch 3: Top-Right    (Blue wires)
 // =============================================================================
 
 #include <Wire.h>
@@ -31,27 +35,61 @@ void setup() {
     Serial.println("[haptics_test] Haptics ready");
   }
 
-  Serial.println("[haptics_test] pulsing each motor...");
+  Serial.println("\n--- bpad 185 Quad Haptics (X Layout) ---");
+  Serial.println("  Top-Left     (Red)   = Ch 2");
+  Serial.println("  Top-Right    (Blue)  = Ch 3");
+  Serial.println("  Bottom-Left  (White) = Ch 0");
+  Serial.println("  Bottom-Right (Black) = Ch 1\n");
 }
 
 void loop() {
-  for (uint8_t i = 0; i < hw.haptics.count; i++) {
-    Serial.printf("  motor %u ON\n", i);
-    haptics.pulse(i, 200, hw.haptics.dacOnValue);
+  // 1. Test individual motors in sequence
+  const bpadMotor motors[] = {
+    bpadMotor::TopLeft,
+    bpadMotor::TopRight,
+    bpadMotor::BottomRight,
+    bpadMotor::BottomLeft
+  };
 
-    while (haptics.isActive(i)) {
+  for (bpadMotor m : motors) {
+    Serial.printf("  Testing %s\n", bpadMotorName(m));
+    haptics.pulse(m, 200, hw.haptics.dacOnValue);
+
+    while (haptics.isActive(m)) {
       haptics.update();
       delay(5);
     }
     delay(300);
   }
 
-  Serial.println("  pulse ALL motors together");
-  haptics.pulseAll(250, hw.haptics.dacOnValue);
-  while (haptics.isAnyActive()) {
-    haptics.update();
-    delay(5);
-  }
+  delay(600);
 
+  // 2. Test directional pairs
+  Serial.println("  Testing TOP pair (TL + TR)...");
+  haptics.pulseTop(200, hw.haptics.dacOnValue);
+  while (haptics.isAnyActive()) { haptics.update(); delay(5); }
+  delay(400);
+
+  Serial.println("  Testing BOTTOM pair (BL + BR)...");
+  haptics.pulseBottom(200, hw.haptics.dacOnValue);
+  while (haptics.isAnyActive()) { haptics.update(); delay(5); }
+  delay(400);
+
+  Serial.println("  Testing LEFT pair (TL + BL)...");
+  haptics.pulseLeft(200, hw.haptics.dacOnValue);
+  while (haptics.isAnyActive()) { haptics.update(); delay(5); }
+  delay(400);
+
+  Serial.println("  Testing RIGHT pair (TR + BR)...");
+  haptics.pulseRight(200, hw.haptics.dacOnValue);
+  while (haptics.isAnyActive()) { haptics.update(); delay(5); }
+  delay(400);
+
+  // 3. Test all motors
+  Serial.println("  Testing ALL motors...");
+  haptics.pulseAll(250, hw.haptics.dacOnValue);
+  while (haptics.isAnyActive()) { haptics.update(); delay(5); }
+
+  Serial.println("Cycle complete.\n");
   delay(2000);
 }

@@ -72,12 +72,12 @@ void setup() {
 
 void loop() {
   // Cycle brightness
-  for (int b = 50; b <= 255; b += 10) {
+  for (int b = 0; b <= 255; b += 5) {
     display.setBrightness(b);
-    delay(50);
+    delay(25);
   }
-  for (int b = 255; b >= 50; b -= 10) {
+  for (int b = 255; b >= 0; b -= 5) {
     display.setBrightness(b);
-    delay(50);
+    delay(25);
   }
 }
