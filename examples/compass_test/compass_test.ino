@@ -2,7 +2,7 @@
 //  compass_test.ino — bpad_hal MMC5603NJ Magnetometer Example
 // =============================================================================
 //  Reads geomagnetic field data (uT) and computes calibrated compass heading.
-//  Present on bpad 185 at I2C address 0x30.
+//  Note: Unpopulated on bpad 185 V1 board.
 // =============================================================================
 
 #include <Wire.h>
@@ -18,11 +18,21 @@ void setup() {
 #endif
   delay(500);
 
-  Serial.printf("[compass_test] board=%s  device=%s  addr=0x%02X\n",
-    hw.name, hw.compass.device, hw.compass.address);
+  Serial.printf("[compass_test] board=%s  device=%s  addr=0x%02X  status=%s\n",
+    hw.name, hw.compass.device, hw.compass.address, bpadSupportName(hw.compass.support));
+
+  if (hw.compass.support == bpadSupport::NotPresent) {
+    Serial.println("[compass_test] Notice: Compass is not populated on this board profile.");
+    if (hw.compass.note && strlen(hw.compass.note) > 0) {
+      Serial.printf("[compass_test] Note: %s\n", hw.compass.note);
+    }
+    Serial.println("[compass_test] Exiting test.");
+    return;
+  }
 
   Wire.begin(hw.i2c.sda, hw.i2c.scl);
   Wire.setClock(hw.i2c.clock);
+  Wire.setTimeOut(50);
 
   if (!compass.begin(Wire)) {
     Serial.println("[compass_test] FAILED to initialize MMC5603NJ!");
@@ -36,6 +46,11 @@ void setup() {
 }
 
 void loop() {
+  if (hw.compass.support == bpadSupport::NotPresent) {
+    delay(1000);
+    return;
+  }
+
   if (compass.update()) {
     Serial.printf("X:%6.1f uT  Y:%6.1f uT  Z:%6.1f uT  | Heading: %5.1f deg\n",
       compass.x(), compass.y(), compass.z(), compass.heading());

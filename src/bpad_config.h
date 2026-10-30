@@ -119,10 +119,10 @@ struct bpadIMUConfig {
 };
 
 struct bpadCompassConfig {
-  bpadSupport support = bpadSupport::Present;
+  bpadSupport support = bpadSupport::NotPresent;
   const char* device = "MMC5603NJ";
   uint8_t address = 0x30;
-  const char* note = "Unified MMC5603NJ driver.";
+  const char* note = "Not populated on bpad 185 V1 hardware.";
 };
 
 struct bpadRTCConfig {

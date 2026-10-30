@@ -14,7 +14,7 @@ This document tracks the hardware specifications for `bpad_hal` (bpad 185 and fu
 | Amp Power | `GPIO13` | Configurable | High |
 | Haptics | MCP4728 DAC at `0x60`, 4 motors (Ch A/B/C/D) in X layout | 4-channel DAC / PWM | High |
 | IMU (6-Axis) | ICM-42607-P at `0x69` (±2g / ±2000dps, -90° rotation) | Modern 6-axis I2C IMUs | High |
-| Compass | MMC5603NJ at `0x30` | MMC5603NJ | High |
+| Compass | Not Present (Unpopulated on v1 PCB, MMC5603NJ footprint at `0x30`) | MMC5603NJ / Optional | High |
 | Storage | SD_MMC 4-wire (XinYY SD32G SD-NAND) | High-speed 4-bit SDMMC | High |
 | Storage Pins | `CLK=9, CMD=12, D0=11, D1=10, D2=7, D3=8` | Configurable | High |
 | Wireless | Wi-Fi 802.11 b/g/n, Bluetooth 5 (LE) | Built-in | High |
