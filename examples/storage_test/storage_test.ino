@@ -38,11 +38,11 @@ void setup() {
   Serial.printf("[storage_test] Free space:  %.2f MB\n", storage.freeMB());
 
   // Test write/read verification
-  const char* testPath = "/sd/hal_test.txt";
+  const char* testPath = "/hal_test.txt";
   const char* testPayload = "Hello from bpad_hal! Modern HAL running on bpad 185.";
 
   Serial.printf("[storage_test] Writing test payload to %s ...\n", testPath);
-  File f = SD_MMC.open(testPath, FILE_WRITE);
+  File f = storage.open(testPath, FILE_WRITE);
   if (!f) {
     Serial.println("[storage_test] Failed to open file for writing!");
     return;
@@ -51,7 +51,7 @@ void setup() {
   f.close();
 
   Serial.println("[storage_test] Reading test payload back...");
-  f = SD_MMC.open(testPath, FILE_READ);
+  f = storage.open(testPath, FILE_READ);
   if (!f) {
     Serial.println("[storage_test] Failed to open file for reading!");
     return;
@@ -68,7 +68,7 @@ void setup() {
   }
 
   // Clean up
-  SD_MMC.remove(testPath);
+  storage.remove(testPath);
 }
 
 void loop() {

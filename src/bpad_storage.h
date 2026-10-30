@@ -101,6 +101,36 @@ public:
     return 0.0f;
   }
 
+  fs::FS& fs() { return SD_MMC; }
+
+  // Normalizes path so callers can use "/file.txt" or "/sd/file.txt" interchangeably
+  static const char* normalizePath(const char* path) {
+    if (path && strncmp(path, "/sd/", 4) == 0) {
+      return path + 3; // Strip "/sd", leaving "/..."
+    }
+    return path;
+  }
+
+  File open(const char* path, const char* mode = FILE_READ, const bool create = false) {
+    if (!_mounted) return File();
+    return SD_MMC.open(normalizePath(path), mode, create);
+  }
+
+  bool exists(const char* path) {
+    if (!_mounted) return false;
+    return SD_MMC.exists(normalizePath(path));
+  }
+
+  bool remove(const char* path) {
+    if (!_mounted) return false;
+    return SD_MMC.remove(normalizePath(path));
+  }
+
+  bool mkdir(const char* path) {
+    if (!_mounted) return false;
+    return SD_MMC.mkdir(normalizePath(path));
+  }
+
   const bpadStorageConfig& config() const { return _cfg; }
 
 private:
