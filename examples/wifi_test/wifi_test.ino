@@ -60,9 +60,9 @@ void registerWiFiEvents() {
         Serial.println("\n==============================================");
         Serial.println("   >>> SUCCESS: CONNECTED TO WI-FI NETWORK! <<<");
         Serial.println("==============================================");
-        Serial.printf("  IP Address: %s\n", IPAddress(info.got_ip.ip_info.ip.addr).toString().c_str());
-        Serial.printf("  Gateway:    %s\n", IPAddress(info.got_ip.ip_info.gw.addr).toString().c_str());
-        Serial.printf("  Subnet:     %s\n", IPAddress(info.got_ip.ip_info.netmask).toString().c_str());
+        Serial.printf("  IP Address: %s\n", WiFi.localIP().toString().c_str());
+        Serial.printf("  Gateway:    %s\n", WiFi.gatewayIP().toString().c_str());
+        Serial.printf("  Subnet:     %s\n", WiFi.subnetMask().toString().c_str());
         Serial.printf("  RSSI:       %d dBm\n", WiFi.RSSI());
         Serial.println("==============================================\n");
         break;
