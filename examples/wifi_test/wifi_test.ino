@@ -30,6 +30,8 @@ void setup() {
   WiFi.disconnect();
   delay(100);
 
+  Serial.printf("Real Hardware MAC: %s\n", WiFi.macAddress().c_str());
+
   int n = WiFi.scanNetworks();
   Serial.printf("[SCAN] Scan complete. Found %d network(s):\n", n);
 
