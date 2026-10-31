@@ -17,7 +17,7 @@ This document tracks the hardware specifications for `bpad_hal` (bpad 185 and fu
 | Compass | Not Present (Unpopulated on v1 PCB, MMC5603NJ footprint at `0x30`) | MMC5603NJ / Optional | High |
 | Storage | SD_MMC 4-wire (XinYY SD32G SD-NAND) | High-speed 4-bit SDMMC | High |
 | Storage Pins | `CLK=9, CMD=12, D0=11, D1=10, D2=7, D3=8` | Configurable | High |
-| Wireless | Wi-Fi 802.11 b/g/n, Bluetooth 5 (LE) | Built-in | High |
+| Wireless | Bluetooth 5.0 (LE) verified. Wi-Fi RX scan verified; Wi-Fi TX hardware-limited on v1.0 PCB (missing CLC π-matching on ceramic antenna ANT3216) | Standard BLE / Wi-Fi | High |
 | PSRAM | Present (Octal PSRAM) | Present | High |
 | USB MSC | Present (Native USB CDC/OTG) | Present | High |
 

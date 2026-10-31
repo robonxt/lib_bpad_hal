@@ -43,5 +43,6 @@ void setup() {
 | **Audio** | MCP4725 12-bit DAC (Addr=0x61) with amplifier power gate (GPIO 13) |
 | **Haptics** | MCP4728 4-channel DAC (Addr=0x60) for 4 independent vibration channels |
 | **Storage** | High-speed 4-bit `SD_MMC` (XinYY SD32G SD-NAND) |
+| **Wireless** | Bluetooth 5.0 (LE) active; Wi-Fi RX verified (TX limited on v1.0 PCB rev) |
 
 See [BOARD_MATRIX.md](BOARD_MATRIX.md) for pinout details and hardware notes.
