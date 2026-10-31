@@ -1,16 +1,23 @@
 // =============================================================================
-//  wifi_test.ino — bpad_hal Wi-Fi subsystem test
+//  wifi_test.ino — bpad_hal Wi-Fi subsystem diagnostic
 // =============================================================================
-//  Tests Wi-Fi scanning (receiver RF) and SoftAP broadcasting (transmitter RF).
-//  Also allows testing connection to your home network via Serial.
+//  Clean Wi-Fi test designed for ESP32 Arduino Core 3.x / ESP-IDF 5.x.
+//  - Starts SoftAP directly on boot (no scan interference or baseband shutdown)
+//  - Captures and prints all internal Wi-Fi hardware events in real time
+//  - Provides HTTP response on port 80 for phone captive portal / connectivity
+//  - Allows scanning or connecting to home router via Serial commands
 // =============================================================================
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <NetworkServer.h>
+#include <NetworkClient.h>
 #include <esp_mac.h>
 #include <bpad_hal.h>
 
 const bpadConfig hw = bpadConfig::defaultBoard();
+
+NetworkServer server(80);
 
 void printHardwareMACs() {
   uint8_t mac_sta[6];
@@ -26,6 +33,48 @@ void printHardwareMACs() {
   Serial.println("------------------------------------\n");
 }
 
+void registerWiFiEvents() {
+  WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+    switch (event) {
+      case ARDUINO_EVENT_WIFI_READY:
+        Serial.println("[EVT] Wi-Fi baseband hardware READY");
+        break;
+      case ARDUINO_EVENT_WIFI_AP_START:
+        Serial.println("[EVT] SoftAP Beaconing Started!");
+        break;
+      case ARDUINO_EVENT_WIFI_AP_STOP:
+        Serial.println("[EVT] SoftAP Stopped");
+        break;
+      case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+        Serial.printf("[EVT] Client connected to SoftAP! Client MAC: %02X:%02X:%02X:%02X:%02X:%02X  AID: %d\n",
+          info.wifi_ap_staconnected.mac[0], info.wifi_ap_staconnected.mac[1],
+          info.wifi_ap_staconnected.mac[2], info.wifi_ap_staconnected.mac[3],
+          info.wifi_ap_staconnected.mac[4], info.wifi_ap_staconnected.mac[5],
+          info.wifi_ap_staconnected.aid);
+        break;
+      case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+        Serial.println("[EVT] Client disconnected from SoftAP");
+        break;
+      case ARDUINO_EVENT_WIFI_STA_START:
+        Serial.println("[EVT] STA station interface started");
+        break;
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+        Serial.println("[EVT] >>> STA CONNECTED to Router! Authenticating & requesting IP... <<<");
+        break;
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        Serial.printf("[EVT] >>> STA GOT IP: %s (Gateway: %s) <<<\n",
+          IPAddress(info.got_ip.ip_info.ip.addr).toString().c_str(),
+          IPAddress(info.got_ip.ip_info.gw.addr).toString().c_str());
+        break;
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+        Serial.printf("[EVT] STA Disconnected. Reason Code: %d\n", info.wifi_sta_disconnected.reason);
+        break;
+      default:
+        break;
+    }
+  });
+}
+
 void setup() {
   Serial.begin(115200);
 #if ARDUINO_USB_CDC_ON_BOOT
@@ -37,96 +86,104 @@ void setup() {
   Serial.println("         bpad 185 Wi-Fi Diagnostic");
   Serial.println("==============================================");
 
-  // 1. Read hardware eFuse MAC addresses
+  // 1. Read hardware eFuses
   printHardwareMACs();
 
-  // 2. Station Mode Scan Test (Receiver RF check)
-  Serial.println("[1/2] Scanning 2.4 GHz Channels in Station Mode...");
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  delay(100);
+  // 2. Attach real-time event listener
+  registerWiFiEvents();
 
-  int n = WiFi.scanNetworks();
-  Serial.printf("[SCAN] Found %d network(s):\n", n);
-
-  if (n == 0) {
-    Serial.println("  >>> WARNING: No networks found! Check antenna connection. <<<");
-  } else {
-    for (int i = 0; i < n; ++i) {
-      Serial.printf("  %2d: [%-4d dBm] %-32s (Ch: %2d, Enc: %s)\n",
-        i + 1,
-        WiFi.RSSI(i),
-        WiFi.SSID(i).c_str(),
-        WiFi.channel(i),
-        (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "Open" : "Secured");
-    }
-  }
-  WiFi.scanDelete();
-
-  // 3. Complete Teardown of Station Mode (identical to bpad_UI_OS_v1 NetworkPortal)
-  Serial.println("\n[2/2] Switching to Pure SoftAP Mode...");
-  WiFi.disconnect(true);
-  delay(100);
-  WiFi.mode(WIFI_AP);
-  delay(50);
-
+  // 3. Start SoftAP directly (clean baseband boot, no preliminary scan)
+  Serial.println("[AP] Launching SoftAP broadcast...");
   const char* apSSID = "bpad185_Setup";
-  // Open network ("") identical to NetworkPortal.h line 511
-  bool apSuccess = WiFi.softAP(apSSID, "");
-  delay(50);
+  const char* apPass = "12345678";
+
+  WiFi.mode(WIFI_AP);
+  bool apSuccess = WiFi.softAP(apSSID, apPass);
 
   if (apSuccess) {
-    IPAddress ip = WiFi.softAPIP();
+    IPAddress myIP = WiFi.softAPIP();
     Serial.printf("[AP] >>> SUCCESS: SoftAP Broadcast is LIVE! <<<\n");
-    Serial.printf("     SSID:     %s  (Open / No Password)\n", apSSID);
-    Serial.printf("     IP Addr:  %s\n", ip.toString().c_str());
+    Serial.printf("     SSID:     %s\n", apSSID);
+    Serial.printf("     Password: %s\n", apPass);
+    Serial.printf("     Channel:  %d\n", WiFi.channel());
+    Serial.printf("     IP Addr:  %s\n", myIP.toString().c_str());
     Serial.printf("     AP MAC:   %s\n", WiFi.softAPmacAddress().c_str());
-    Serial.println("\nCheck your phone's Wi-Fi list now for 'bpad185_Setup'.");
+    
+    server.begin();
+    Serial.println("[AP] HTTP Server listening on port 80 (Captive Portal ready)");
+    Serial.println("\n>>> Open Wi-Fi on your phone and connect to 'bpad185_Setup' (PW: 12345678) <<<");
   } else {
-    Serial.println("[AP] >>> FAILED to start SoftAP! <<<");
+    Serial.println("[AP] >>> FAILED to create SoftAP! <<<");
   }
 
-  Serial.println("\n(To test connecting to your home router, type: connect <SSID> <PASSWORD>)\n");
+  Serial.println("\n--- Serial Commands Available ---");
+  Serial.println("  1. Type 'scan' to scan nearby 2.4 GHz channels");
+  Serial.println("  2. Type 'connect <SSID> <PASSWORD>' to test home router connection\n");
 }
 
 void loop() {
-  static uint32_t lastCheck = 0;
-  if (millis() - lastCheck >= 3000) {
-    lastCheck = millis();
-    int clients = WiFi.softAPgetStationNum();
-    if (clients > 0) {
-      Serial.printf("[AP Monitor] Client connected! Count: %d\n", clients);
+  // Handle HTTP client requests from connected phones
+  NetworkClient client = server.accept();
+  if (client) {
+    String currentLine = "";
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        if (c == '\n') {
+          if (currentLine.length() == 0) {
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println("Connection: close");
+            client.println();
+            client.println("<!DOCTYPE html><html><body style='font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff;'>");
+            client.println("<h1>bpad 185 Wi-Fi Verified!</h1>");
+            client.println("<p>Communication between phone and bpad 185 is fully functional.</p>");
+            client.println("</body></html>");
+            client.println();
+            break;
+          } else {
+            currentLine = "";
+          }
+        } else if (c != '\r') {
+          currentLine += c;
+        }
+      }
     }
+    client.stop();
   }
 
-  // Allow connecting to home router via Serial command: "connect <SSID> <PASS>"
+  // Serial commands handler
   if (Serial.available()) {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
-    if (cmd.startsWith("connect ")) {
+
+    if (cmd == "scan") {
+      Serial.println("\n[SCAN] Switching to dual mode and scanning 2.4 GHz channels...");
+      WiFi.mode(WIFI_AP_STA);
+      int n = WiFi.scanNetworks();
+      Serial.printf("[SCAN] Found %d network(s):\n", n);
+      for (int i = 0; i < n; ++i) {
+        Serial.printf("  %2d: [%-4d dBm] %-32s (Ch: %2d, Enc: %s)\n",
+          i + 1,
+          WiFi.RSSI(i),
+          WiFi.SSID(i).c_str(),
+          WiFi.channel(i),
+          (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "Open" : "Secured");
+      }
+      WiFi.scanDelete();
+    } else if (cmd.startsWith("connect ")) {
       int firstSpace = cmd.indexOf(' ', 8);
       if (firstSpace > 8) {
         String ssid = cmd.substring(8, firstSpace);
         String pass = cmd.substring(firstSpace + 1);
-        Serial.printf("\n[STA] Switching to STA mode and connecting to %s ...\n", ssid.c_str());
-        WiFi.softAPdisconnect(true);
-        WiFi.disconnect(true);
-        delay(100);
-        WiFi.mode(WIFI_STA);
+        Serial.printf("\n[STA] Connecting to '%s' ...\n", ssid.c_str());
+        WiFi.mode(WIFI_AP_STA);
         WiFi.begin(ssid.c_str(), pass.c_str());
-        int tries = 0;
-        while (WiFi.status() != WL_CONNECTED && tries < 20) {
-          delay(500);
-          Serial.print(".");
-          tries++;
-        }
-        if (WiFi.status() == WL_CONNECTED) {
-          Serial.printf("\n[STA] CONNECTED! IP: %s  RSSI: %d dBm\n",
-            WiFi.localIP().toString().c_str(), WiFi.RSSI());
-        } else {
-          Serial.println("\n[STA] Connection failed.");
-        }
+      } else {
+        Serial.println("[STA] Format: connect <SSID> <PASSWORD>");
       }
     }
   }
+
+  delay(10);
 }
