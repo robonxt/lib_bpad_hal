@@ -10,6 +10,19 @@
 #include <Wire.h>
 #include "bpad_config.h"
 
+enum class bpadTouchMode : uint8_t {
+  NativeHardware = 0, // Pure CST816 on-chip DSP gestures (register 0x01) with edge-triggering
+  CustomSoftware = 1  // Custom software timing, delta tracking, and swipe engine
+};
+
+inline const char* bpadTouchModeName(bpadTouchMode mode) {
+  switch (mode) {
+    case bpadTouchMode::NativeHardware: return "Native Hardware (CST816 DSP)";
+    case bpadTouchMode::CustomSoftware: return "Custom Software Engine";
+    default: return "Unknown";
+  }
+}
+
 enum class bpadGesture : uint8_t {
   None = 0x00,
   SwipeDown = 0x01,
@@ -206,6 +219,17 @@ public:
   bool isInvertedX() const { return _invertX; }
   bool isInvertedY() const { return _invertY; }
 
+  // --- Gesture Engine Mode ---
+  void setTouchMode(bpadTouchMode mode) {
+    _touchMode = mode;
+    _lastReportedHwGesture = 0;
+    _softwareGestureReported = false;
+  }
+
+  bpadTouchMode getTouchMode() const {
+    return _touchMode;
+  }
+
   bool isReady() const { return _ready; }
   const bpadTouchConfig& config() const { return _cfg; }
 
@@ -214,6 +238,10 @@ private:
   TwoWire* _wire = nullptr;
   bool _ready = false;
   uint32_t _lastPollMs = 0;
+
+  bpadTouchMode _touchMode = bpadTouchMode::NativeHardware;
+  uint8_t _lastReportedHwGesture = 0;
+  bool _softwareGestureReported = false;
 
   uint16_t _width = 360;
   uint16_t _height = 360;
@@ -304,6 +332,21 @@ private:
   }
 
   bpadGesture processGesture(const bpadTouchData& td) {
+    if (_touchMode == bpadTouchMode::NativeHardware) {
+      // --- Pure CST816 Hardware Gesture Mode ---
+      // Hardware registers hold the gesture for ~20-50ms. Edge-trigger so it only fires ONCE.
+      if (td.rawGesture != 0) {
+        if (td.rawGesture != _lastReportedHwGesture) {
+          _lastReportedHwGesture = td.rawGesture;
+          return normalizeRawGesture(td.rawGesture);
+        }
+      } else {
+        _lastReportedHwGesture = 0;
+      }
+      return bpadGesture::None;
+    }
+
+    // --- Custom Software Gesture Mode ---
     bpadGesture hwGesture = normalizeRawGesture(td.rawGesture);
 
     if (td.pressed) {
@@ -314,21 +357,25 @@ private:
         _touchStartMs = millis();
         _deltaX = 0;
         _deltaY = 0;
+        _softwareGestureReported = false;
         return bpadGesture::None;
       }
 
       _deltaX = (int16_t)td.x - (int16_t)_startX;
       _deltaY = (int16_t)td.y - (int16_t)_startY;
 
-      // Long press detection while held
+      // Software Long Press (held >= 600ms within 10px radius)
       if ((millis() - _touchStartMs >= 600) && abs(_deltaX) <= 10 && abs(_deltaY) <= 10) {
-        return bpadGesture::LongPress;
+        if (!_softwareGestureReported) {
+          _softwareGestureReported = true;
+          return bpadGesture::LongPress;
+        }
       }
 
       return bpadGesture::None;
     }
 
-    // Finger released
+    // Finger released in Software mode
     if (_tracking) {
       _tracking = false;
       unsigned long duration = millis() - _touchStartMs;
@@ -337,11 +384,12 @@ private:
       _deltaX = dx;
       _deltaY = dy;
 
-      if (hwGesture != bpadGesture::None) {
-        return hwGesture;
+      if (_softwareGestureReported) {
+        _softwareGestureReported = false;
+        return bpadGesture::None;
       }
 
-      // Swipe detection (movement >= 20px in >= 50ms)
+      // Software Swipe detection (movement >= 20px in >= 50ms)
       if (duration >= 50 && (abs(dx) >= 20 || abs(dy) >= 20)) {
         if (abs(dx) >= abs(dy)) {
           return (dx > 0) ? bpadGesture::SwipeRight : bpadGesture::SwipeLeft;
@@ -350,12 +398,18 @@ private:
         }
       }
 
-      // Tap detection (movement <= 10px in <= 250ms)
+      // Software Tap detection (movement <= 10px in <= 250ms)
       if (duration <= 250 && abs(dx) <= 10 && abs(dy) <= 10) {
         return bpadGesture::Tap;
       }
+
+      // Fallback to hardware gesture if software thresholds weren't met
+      if (hwGesture != bpadGesture::None) {
+        return hwGesture;
+      }
     }
 
-    return hwGesture;
+    _softwareGestureReported = false;
+    return bpadGesture::None;
   }
 };
