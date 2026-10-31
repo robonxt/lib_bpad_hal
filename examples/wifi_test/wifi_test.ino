@@ -40,9 +40,8 @@ void setup() {
   // 1. Read hardware eFuse MAC addresses
   printHardwareMACs();
 
-  // 2. Set Dual AP+STA Mode & Boost Transmit Power to Maximum (+19.5 dBm)
+  // 2. Set AP+STA Mode
   WiFi.mode(WIFI_AP_STA);
-  WiFi.setTxPower(WIFI_POWER_19_5dBm);
   delay(100);
 
   // 3. Station Mode Scan Test (Receiver RF check)
@@ -62,22 +61,28 @@ void setup() {
         (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "Open" : "Secured");
     }
   }
+  WiFi.scanDelete();
 
-  // 4. Start SoftAP on Channel 6 (Open network for instant phone discovery)
+  // 4. Start SoftAP
   Serial.println("\n[2/2] Starting SoftAP Broadcast...");
   const char* apSSID = "bpad185_Setup";
+  const char* apPass = "12345678";
 
-  // Channel 6, visible (ssid_hidden=0), open authentication
-  bool apSuccess = WiFi.softAP(apSSID, NULL, 6, 0, 4);
+  // Broadcast on Channel 1 with password "12345678"
+  bool apSuccess = WiFi.softAP(apSSID, apPass, 1, 0, 4);
+
+  // Set maximum TX power after AP interface is live
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
 
   if (apSuccess) {
     IPAddress ip = WiFi.softAPIP();
     Serial.printf("[AP] >>> SUCCESS: SoftAP Broadcast is LIVE! <<<\n");
-    Serial.printf("     SSID:     %s  (Open / No Password)\n", apSSID);
-    Serial.printf("     Channel:  6\n");
+    Serial.printf("     SSID:     %s\n", apSSID);
+    Serial.printf("     Password: %s\n", apPass);
+    Serial.printf("     Channel:  1\n");
     Serial.printf("     IP Addr:  %s\n", ip.toString().c_str());
     Serial.printf("     AP MAC:   %s\n", WiFi.softAPmacAddress().c_str());
-    Serial.println("\nCheck your phone's Wi-Fi list now for 'bpad185_Setup'.");
+    Serial.println("\nCheck your phone's Wi-Fi list for 'bpad185_Setup' (PW: 12345678).");
   } else {
     Serial.println("[AP] >>> FAILED to start SoftAP! <<<");
   }
