@@ -51,7 +51,9 @@ void registerWiFiEvents() {
         break;
       case ARDUINO_EVENT_WIFI_STA_START:
         Serial.println("[EVT] STA station interface started");
-        WiFi.setTxPower(WIFI_POWER_19_5dBm);
+        WiFi.setSleep(false); // Disable modem sleep to prevent dropped handshake frames
+        WiFi.setTxPower(WIFI_POWER_8_5dBm); // Prevent ceramic antenna RF saturation
+        Serial.println("[EVT] Sleep disabled. TX Power calibrated to +8.5 dBm.");
         break;
       case ARDUINO_EVENT_WIFI_STA_CONNECTED:
         Serial.println("[EVT] >>> STEP 1: ASSOCIATED WITH ROUTER! Handshaking... <<<");
@@ -131,12 +133,25 @@ void loop() {
           (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "Open" : "Secured");
       }
       WiFi.scanDelete();
+    } else if (cmd.startsWith("power ")) {
+      String p = cmd.substring(6);
+      p.trim();
+      int dbm = p.toInt();
+      wifi_power_t pw = WIFI_POWER_8_5dBm;
+      if (dbm <= 5) pw = WIFI_POWER_5dBm;
+      else if (dbm <= 8) pw = WIFI_POWER_8_5dBm;
+      else if (dbm <= 11) pw = WIFI_POWER_11dBm;
+      else if (dbm <= 15) pw = WIFI_POWER_15dBm;
+      else pw = WIFI_POWER_19_5dBm;
+      WiFi.setTxPower(pw);
+      Serial.printf("[PWR] Transmit power set to level: %d dBm\n", dbm);
     } else if (cmd.startsWith("connect ")) {
       int firstSpace = cmd.indexOf(' ', 8);
       if (firstSpace > 8) {
         String ssid = cmd.substring(8, firstSpace);
         String pass = cmd.substring(firstSpace + 1);
-        Serial.printf("\n[STA] Connecting to '%s' on full power (+19.5 dBm)...\n", ssid.c_str());
+        Serial.printf("\n[STA] Connecting to '%s' (TX Power: +8.5 dBm, Sleep: OFF)...\n", ssid.c_str());
+        WiFi.setSleep(false);
         WiFi.begin(ssid.c_str(), pass.c_str());
       } else {
         Serial.println("[STA] Format: connect <SSID> <PASSWORD>");
