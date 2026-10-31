@@ -40,12 +40,12 @@ void setup() {
   // 1. Read hardware eFuse MAC addresses
   printHardwareMACs();
 
-  // 2. Set AP+STA Mode
-  WiFi.mode(WIFI_AP_STA);
+  // 2. Station Mode Scan Test (Receiver RF check)
+  Serial.println("[1/2] Scanning 2.4 GHz Channels in Station Mode...");
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
   delay(100);
 
-  // 3. Station Mode Scan Test (Receiver RF check)
-  Serial.println("[1/2] Scanning 2.4 GHz Channels...");
   int n = WiFi.scanNetworks();
   Serial.printf("[SCAN] Found %d network(s):\n", n);
 
@@ -63,31 +63,30 @@ void setup() {
   }
   WiFi.scanDelete();
 
-  // 4. Start SoftAP
-  Serial.println("\n[2/2] Starting SoftAP Broadcast...");
+  // 3. Complete Teardown of Station Mode (identical to bpad_UI_OS_v1 NetworkPortal)
+  Serial.println("\n[2/2] Switching to Pure SoftAP Mode...");
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.mode(WIFI_AP);
+  delay(50);
+
   const char* apSSID = "bpad185_Setup";
-  const char* apPass = "12345678";
-
-  // Broadcast on Channel 1 with password "12345678"
-  bool apSuccess = WiFi.softAP(apSSID, apPass, 1, 0, 4);
-
-  // Set maximum TX power after AP interface is live
-  WiFi.setTxPower(WIFI_POWER_19_5dBm);
+  // Open network ("") identical to NetworkPortal.h line 511
+  bool apSuccess = WiFi.softAP(apSSID, "");
+  delay(50);
 
   if (apSuccess) {
     IPAddress ip = WiFi.softAPIP();
     Serial.printf("[AP] >>> SUCCESS: SoftAP Broadcast is LIVE! <<<\n");
-    Serial.printf("     SSID:     %s\n", apSSID);
-    Serial.printf("     Password: %s\n", apPass);
-    Serial.printf("     Channel:  1\n");
+    Serial.printf("     SSID:     %s  (Open / No Password)\n", apSSID);
     Serial.printf("     IP Addr:  %s\n", ip.toString().c_str());
     Serial.printf("     AP MAC:   %s\n", WiFi.softAPmacAddress().c_str());
-    Serial.println("\nCheck your phone's Wi-Fi list for 'bpad185_Setup' (PW: 12345678).");
+    Serial.println("\nCheck your phone's Wi-Fi list now for 'bpad185_Setup'.");
   } else {
     Serial.println("[AP] >>> FAILED to start SoftAP! <<<");
   }
 
-  Serial.println("\n(To test connecting to your home router, type your password in Serial Monitor)\n");
+  Serial.println("\n(To test connecting to your home router, type: connect <SSID> <PASSWORD>)\n");
 }
 
 void loop() {
@@ -96,7 +95,7 @@ void loop() {
     lastCheck = millis();
     int clients = WiFi.softAPgetStationNum();
     if (clients > 0) {
-      Serial.printf("[AP Monitor] Phone/Client connected! Count: %d\n", clients);
+      Serial.printf("[AP Monitor] Client connected! Count: %d\n", clients);
     }
   }
 
@@ -109,7 +108,11 @@ void loop() {
       if (firstSpace > 8) {
         String ssid = cmd.substring(8, firstSpace);
         String pass = cmd.substring(firstSpace + 1);
-        Serial.printf("\n[STA] Connecting to %s ...\n", ssid.c_str());
+        Serial.printf("\n[STA] Switching to STA mode and connecting to %s ...\n", ssid.c_str());
+        WiFi.softAPdisconnect(true);
+        WiFi.disconnect(true);
+        delay(100);
+        WiFi.mode(WIFI_STA);
         WiFi.begin(ssid.c_str(), pass.c_str());
         int tries = 0;
         while (WiFi.status() != WL_CONNECTED && tries < 20) {
