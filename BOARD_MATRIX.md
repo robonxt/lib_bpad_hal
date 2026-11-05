@@ -7,9 +7,10 @@ This document tracks the hardware specifications for `bpad_hal` (bpad 185 and fu
 | Core Platform | ESP32-S3 (Octal PSRAM / Flash) | ESP32-S3 / Next Gen | High |
 | I2C Bus | `SDA=18`, `SCL=17` (400kHz Fast Mode) | Same default | High |
 | Display | ST77916, 360x360 Round QSPI | Modular esp_lcd panel drivers | High |
-| Display Pins | `BL=39, CS=14, RST=42, DC=40, SCK=6, D0=5, D1=4, D2=2, D3=1` | Configurable | High |
+| Display Pins | `BL=39, CS=14, RST=42, DC=40, SCK=6, D0=5, D1=4, D2=2, D3=1, TE=41` | Configurable | High |
 | Touch Controller | CST816S (`0x15`) | CST816S / I2C touch | High |
-| Touch Pins | `IRQ=38, RST=-1` (Shared with LCD_RST 42) | Configurable | High |
+| Touch Pins | `IRQ=38, RST=-1` (Falling-edge IRQ & ext0 deep sleep wake) | Configurable | High |
+| Power / Button | `SW3 / IP5306 KEY on GPIO21` (Clicks, deep sleep wake, soft power-off) | Configurable | High |
 | Audio DAC | MCP4725 at `0x61` (Dedicated) | MCP4725 / I2S | High |
 | Amp Power | `GPIO13` | Configurable | High |
 | Haptics | MCP4728 DAC at `0x60`, 4 motors (Ch A/B/C/D) in X layout | 4-channel DAC / PWM | High |

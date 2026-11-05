@@ -65,6 +65,7 @@ struct bpadDisplayConfig {
   uint8_t cs = 14;
   uint8_t rst = 42;
   uint8_t dc = 40;
+  int8_t te = 41;   // LCD Tearing Effect (VSync signal)
   uint8_t sclk = 6;
   uint8_t mosi = 5;
   int8_t miso = -1;
@@ -153,6 +154,14 @@ struct bpadWirelessConfig {
   bpadSupport bluetooth = bpadSupport::Present;
 };
 
+struct bpadButtonConfig {
+  bpadSupport support = bpadSupport::Present;
+  int8_t pin = 21;          // SW3 & IP5306 KEY pin
+  bool activeLow = true;
+  uint16_t debounceMs = 30;
+  uint16_t longPressMs = 800;
+};
+
 struct bpadSystemConfig {
   bpadSupport psram = bpadSupport::Present;
   bpadSupport usbMsc = bpadSupport::Present;
@@ -174,6 +183,7 @@ struct bpadConfig {
   bpadCompassConfig compass;
   bpadRTCConfig rtc;
   bpadStorageConfig storage;
+  bpadButtonConfig button;
   bpadWirelessConfig wireless;
   bpadSystemConfig system;
 

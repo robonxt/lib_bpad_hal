@@ -57,10 +57,24 @@ public:
         gpio_set_drive_capability((gpio_num_t)_cfg.cs, GPIO_DRIVE_CAP_1);
       }
 
+      // Configure Tearing Effect (TE / VSync) pin (GPIO 41)
+      if (_cfg.te >= 0) {
+        gpio_config_t pin_te_conf = {
+          .pin_bit_mask = (1ULL << _cfg.te),
+          .mode = GPIO_MODE_INPUT,
+          .pull_up_en = GPIO_PULLUP_ENABLE,
+          .pull_down_en = GPIO_PULLDOWN_DISABLE,
+          .intr_type = GPIO_INTR_DISABLE
+        };
+        gpio_config(&pin_te_conf);
+      }
+
       if (_cfg.bl >= 0) {
         gpio_reset_pin((gpio_num_t)_cfg.bl);
+        PIN_FUNC_SELECT(IO_MUX_GPIO39_REG, PIN_FUNC_GPIO);
         gpio_set_drive_capability((gpio_num_t)_cfg.bl, GPIO_DRIVE_CAP_1);
         ledcAttach(_cfg.bl, _cfg.backlightFreq, _cfg.backlightResolution);
+        PIN_FUNC_SELECT(IO_MUX_GPIO39_REG, PIN_FUNC_GPIO);
         ledcWrite(_cfg.bl, 0);
       }
 
@@ -71,7 +85,7 @@ public:
       buscfg.sclk_io_num  = _cfg.sclk;
       buscfg.data2_io_num = _cfg.d2;
       buscfg.data3_io_num = _cfg.d3;
-      buscfg.max_transfer_sz = _cfg.width * 90 * sizeof(uint16_t);
+      buscfg.max_transfer_sz = _cfg.width * _cfg.height * sizeof(uint16_t);
       buscfg.flags = SPICOMMON_BUSFLAG_QUAD;
       esp_err_t err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
       if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
@@ -83,7 +97,7 @@ public:
       io_config.cs_gpio_num = (gpio_num_t)_cfg.cs;
       io_config.dc_gpio_num = GPIO_NUM_NC;
       io_config.spi_mode = 2;
-      io_config.pclk_hz = 80 * 1000 * 1000;
+      io_config.pclk_hz = 50 * 1000 * 1000; // 50 MHz reliable QSPI sync (eliminates tearing)
       io_config.trans_queue_depth = 10;
       io_config.lcd_cmd_bits = 32;
       io_config.lcd_param_bits = 8;
@@ -120,7 +134,7 @@ public:
       esp_lcd_panel_invert_color(_panel_handle, true);
 
       _ready = true;
-      setBrightness(220);
+      setBrightness(130); // 130 (~51%) keeps panel cool while maintaining bright visibility
       Serial.println("[DISPLAY] ST77916 panel initialized successfully!");
       return true;
     }
@@ -128,10 +142,65 @@ public:
     return false;
   }
 
+  // Tearing Effect (TE) & VSync control
+  bool enableTE(bool enable) {
+#if defined(ESP_PLATFORM)
+    if (!_io_handle) return false;
+    // ST77916 QSPI command encoding: [0x02][0x00][CMD][0x00]
+    // 0x02 = LCD_OPCODE_WRITE_CMD, followed by (CMD << 8)
+    if (enable) {
+      // 1. Set Tear Scanline (0x44) to Line 300 (near bottom of 360-line panel)
+      // This gives the MCU maximum lead time to write top-to-bottom without collision
+      uint32_t cmd_scanline = (0x02 << 24) | (0x44 << 8); // 0x02004400
+      uint8_t line_params[2] = { (300 >> 8) & 0xFF, 300 & 0xFF }; // Line 300
+      esp_lcd_panel_io_tx_param(_io_handle, cmd_scanline, line_params, 2);
+
+      // 2. Enable TE signal output (0x35)
+      uint32_t qspi_cmd = (0x02 << 24) | (0x35 << 8); // 0x02003500
+      uint8_t mode = 0x00; // V-blanking only
+      esp_lcd_panel_io_tx_param(_io_handle, qspi_cmd, &mode, 1);
+    } else {
+      uint32_t qspi_cmd = (0x02 << 24) | (0x34 << 8); // 0x02003400 (TE OFF)
+      esp_lcd_panel_io_tx_param(_io_handle, qspi_cmd, NULL, 0);
+    }
+    return true;
+#else
+    return false;
+#endif
+  }
+
+  // Wait for ST77916 VSync pulse on TE pin (GPIO 41)
+  bool waitForVSync(uint32_t timeoutMs = 25) {
+#if defined(ESP_PLATFORM)
+    if (_cfg.te < 0) return false;
+    uint32_t start = millis();
+    // 1. If currently HIGH, wait for it to go LOW
+    while (gpio_get_level((gpio_num_t)_cfg.te) == 1) {
+      if (millis() - start > timeoutMs) return false;
+    }
+    // 2. Wait for rising edge (start of V-Blank interval)
+    while (gpio_get_level((gpio_num_t)_cfg.te) == 0) {
+      if (millis() - start > timeoutMs) return false;
+    }
+    return true;
+#else
+    return false;
+#endif
+  }
+
   void setBrightness(uint8_t brightness) {
+    _brightness = brightness;
     if (_cfg.bl >= 0) {
       ledcWrite(_cfg.bl, brightness);
     }
+  }
+
+  uint8_t getBrightness() const {
+    return _brightness;
+  }
+
+  bool isScreenOn() const {
+    return _brightness > 0;
   }
 
   void drawBitmap(int x_start, int y_start, int x_end, int y_end, const void* color_data) {
@@ -145,12 +214,7 @@ public:
   void drawFrame(const void* color_data) {
 #if defined(ESP_PLATFORM)
     if (_panel_handle && _ready) {
-      const int chunkHeight = 90;
-      const uint16_t* ptr = (const uint16_t*)color_data;
-      for (int y = 0; y < _cfg.height; y += chunkHeight) {
-        int h = (y + chunkHeight > _cfg.height) ? (_cfg.height - y) : chunkHeight;
-        esp_lcd_panel_draw_bitmap(_panel_handle, 0, y, _cfg.width, y + h, ptr + (y * _cfg.width));
-      }
+      esp_lcd_panel_draw_bitmap(_panel_handle, 0, 0, _cfg.width, _cfg.height, color_data);
     }
 #endif
   }
@@ -167,6 +231,7 @@ public:
 private:
   bpadDisplayConfig _cfg;
   bool _ready = false;
+  uint8_t _brightness = 130;
 #if defined(ESP_PLATFORM)
   esp_lcd_panel_handle_t _panel_handle = NULL;
   esp_lcd_panel_io_handle_t _io_handle = NULL;

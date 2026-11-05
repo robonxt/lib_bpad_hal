@@ -320,8 +320,8 @@ private:
 
   bpadGesture normalizeRawGesture(uint8_t raw) {
     switch (raw) {
-      case 0x01: return bpadGesture::SwipeDown;
-      case 0x02: return bpadGesture::SwipeUp;
+      case 0x01: return bpadGesture::SwipeUp;
+      case 0x02: return bpadGesture::SwipeDown;
       case 0x03: return bpadGesture::SwipeLeft;
       case 0x04: return bpadGesture::SwipeRight;
       case 0x05: return bpadGesture::Tap;

@@ -76,6 +76,11 @@ public:
     yaw   = _yaw;
   }
 
+  // Returns onboard ICM-42607 die temperature in Celsius
+  float getTemperatureC() const {
+    return _temperatureC;
+  }
+
   bool isShaking(float threshold = 4.0f) const {
     float dx = fabsf(accelX() - _prevAX);
     float dy = fabsf(accelY() - _prevAY);
@@ -141,6 +146,7 @@ private:
   float _gx = 0.0f, _gy = 0.0f, _gz = 0.0f;
   float _prevAX = 0.0f, _prevAY = 0.0f, _prevAZ = 0.0f;
   float _pitch = 0.0f, _roll = 0.0f, _yaw = 0.0f;
+  float _temperatureC = 25.0f;
 
   float _biasAX = 0.0f, _biasAY = 0.0f, _biasAZ = 0.0f;
   float _biasGX = 0.0f, _biasGY = 0.0f, _biasGZ = 0.0f;
@@ -154,18 +160,18 @@ private:
 
     // Apply PCB orientation rotation offset (e.g. -90 deg on bpad 185)
     if (_cfg.orientationOffsetDeg == -90) {
-      _ax = rawAy;
-      _ay = -rawAx;
-      _az = rawAz;
-      _gx = rawGy;
-      _gy = -rawGx;
-      _gz = rawGz;
-    } else if (_cfg.orientationOffsetDeg == 90) {
       _ax = -rawAy;
       _ay = rawAx;
       _az = rawAz;
       _gx = -rawGy;
       _gy = rawGx;
+      _gz = rawGz;
+    } else if (_cfg.orientationOffsetDeg == 90) {
+      _ax = rawAy;
+      _ay = -rawAx;
+      _az = rawAz;
+      _gx = rawGy;
+      _gy = -rawGx;
       _gz = rawGz;
     } else if (_cfg.orientationOffsetDeg == 180 || _cfg.orientationOffsetDeg == -180) {
       _ax = -rawAx;
@@ -188,8 +194,8 @@ private:
     float curAY = accelY();
     float curAZ = accelZ();
 
-    _roll  = atan2f(curAY, curAZ) * (180.0f / (float)M_PI);
-    _pitch = atan2f(-curAX, sqrtf(curAY * curAY + curAZ * curAZ)) * (180.0f / (float)M_PI);
+    _roll  = atan2f(curAX, curAZ) * (180.0f / (float)M_PI);
+    _pitch = atan2f(curAY, sqrtf(curAX * curAX + curAZ * curAZ)) * (180.0f / (float)M_PI);
 
     // Compute Relative Yaw by integrating Gyro Z over time
     uint32_t nowUs = micros();
@@ -198,8 +204,9 @@ private:
       if (dt > 0.0f && dt < 0.5f) {
         float gz = gyroZ();
         // Deadband filter to prevent drift from stationary noise (±0.6 deg/s)
+        // Clockwise rotation = positive heading/yaw (+)
         if (fabsf(gz) >= 0.6f) {
-          _yaw += gz * dt;
+          _yaw -= gz * dt;
           // Wrap yaw between -180.0 and +180.0 degrees
           if (_yaw > 180.0f)  _yaw -= 360.0f;
           if (_yaw < -180.0f) _yaw += 360.0f;
@@ -227,6 +234,18 @@ private:
     }
     delay(50);
 
+    // GYRO_CONFIG0 (0x20): Bits[6:5]=00 (±2000 dps), Bits[3:0]=0110 (100 Hz ODR) -> 0x06
+    _wire->beginTransmission(_cfg.address);
+    _wire->write(0x20);
+    _wire->write(0x06);
+    _wire->endTransmission(true);
+
+    // ACCEL_CONFIG0 (0x21): Bits[6:5]=11 (±2g), Bits[3:0]=0110 (100 Hz ODR) -> 0x66
+    _wire->beginTransmission(_cfg.address);
+    _wire->write(0x21);
+    _wire->write(0x66);
+    _wire->endTransmission(true);
+
     // Verify WHO_AM_I register (0x75) -> Expected 0x60
     _wire->beginTransmission(_cfg.address);
     _wire->write(0x75);
@@ -243,10 +262,13 @@ private:
 
   bool readICM42607() {
     _wire->beginTransmission(_cfg.address);
-    _wire->write(0x0B); // ACCEL_DATA_X1
+    _wire->write(0x09); // Start at TEMP_DATA1 (0x09) through GYRO_DATA_Z0 (0x16) -> 14 bytes
     if (_wire->endTransmission(false) != 0) return false;
 
-    if (_wire->requestFrom((uint8_t)_cfg.address, (uint8_t)12) != 12) return false;
+    if (_wire->requestFrom((uint8_t)_cfg.address, (uint8_t)14) != 14) return false;
+
+    int16_t rawTemp = (int16_t)((_wire->read() << 8) | _wire->read());
+    _temperatureC = ((float)rawTemp / 128.0f) + 25.0f;
 
     int16_t rawAX = (int16_t)((_wire->read() << 8) | _wire->read());
     int16_t rawAY = (int16_t)((_wire->read() << 8) | _wire->read());

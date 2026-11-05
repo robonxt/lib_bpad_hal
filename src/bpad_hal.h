@@ -20,3 +20,4 @@
 #include "bpad_audio.h"
 #include "bpad_haptics.h"
 #include "bpad_storage.h"
+#include "bpad_power.h"

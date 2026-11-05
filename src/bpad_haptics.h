@@ -77,6 +77,35 @@ public:
     return false;
   }
 
+  // --- Fast Multi-Channel Update (MCP4728 Fast Write Command) ---
+  // Transmits all 4 channel levels in a single contiguous I2C burst (reduces I2C packets by 75%)
+  void updateAllMotors(uint16_t m0, uint16_t m1, uint16_t m2, uint16_t m3) {
+    if (!_ready) return;
+    _strengths[0] = m0;
+    _strengths[1] = m1;
+    _strengths[2] = m2;
+    _strengths[3] = m3;
+
+    if (_cfg.backend == bpadHapticsBackend::MCP4728_DAC && _wire) {
+      _wire->beginTransmission(_cfg.mcp4728Address);
+      // Fast Write command: bits[7:3] = 00000, bit[2:1] = DAC channel, bit[0] = UDAC
+      // Consecutive 2-byte pairs automatically write Ch0, Ch1, Ch2, Ch3
+      for (uint8_t i = 0; i < 4; i++) {
+        uint8_t ch = _cfg.mcp4728Channels[i];
+        if (ch == 0xFF) ch = i;
+        uint16_t val = constrain(_strengths[i], 0, 4095);
+        _wire->write(((ch & 0x03) << 1) | ((val >> 8) & 0x0F));
+        _wire->write(val & 0xFF);
+      }
+      _wire->endTransmission();
+    } else {
+      setMotor(0, m0);
+      setMotor(1, m1);
+      setMotor(2, m2);
+      setMotor(3, m3);
+    }
+  }
+
   // --- Motor control by index (0-3) ---
   void setMotor(uint8_t index, uint16_t strength) {
     if (!_ready || index >= _cfg.count || index >= 4) return;
@@ -156,8 +185,15 @@ public:
   }
 
   void stopAll() {
-    for (uint8_t i = 0; i < 4; i++) {
-      stop(i);
+    if (_cfg.backend == bpadHapticsBackend::MCP4728_DAC && _wire && _ready) {
+      for (uint8_t i = 0; i < 4; i++) {
+        _active[i] = false;
+      }
+      updateAllMotors(0, 0, 0, 0);
+    } else {
+      for (uint8_t i = 0; i < 4; i++) {
+        stop(i);
+      }
     }
   }
 

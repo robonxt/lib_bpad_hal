@@ -13,7 +13,7 @@
 #include <AudioFileSourcePROGMEM.h>
 #include <AudioOutput.h>
 
-#include "test_audio.h"
+#include "test_audio.8k.h"
 
 const bpadConfig hw = bpadConfig::defaultBoard();
 

@@ -55,10 +55,11 @@ void loop() {
     imu.getGyro(gx, gy, gz);
     imu.getAttitude(pitch, roll, yaw);
 
-    Serial.printf("[IMU] A: %+6.2fg %+6.2fg %+6.2fg | G: %+7.1f %+7.1f %+7.1f dps | Att: P=%+5.1f R=%+5.1f Y=%+6.1f deg\n",
+    Serial.printf("[IMU] A: %+6.2fg %+6.2fg %+6.2fg | G: %+7.1f %+7.1f %+7.1f dps | Att: P=%+5.1f R=%+5.1f Y=%+6.1f deg | Temp: %+4.1fC\n",
       ax, ay, az,
       gx, gy, gz,
-      pitch, roll, yaw);
+      pitch, roll, yaw,
+      imu.getTemperatureC());
 
     if (imu.isShaking(3.5f)) {
       Serial.println("  >>> SHAKE DETECTED <<<");
