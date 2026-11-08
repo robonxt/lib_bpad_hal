@@ -11,8 +11,8 @@
 #include <Wire.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadHaptics haptics(hw.haptics);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Haptics haptics(hw.haptics);
 
 void setup() {
   Serial.begin(115200);
@@ -23,7 +23,7 @@ void setup() {
 
   Serial.printf("[haptics_test] board=%s  backend=%s  count=%u\n",
     hw.name,
-    bpadHapticsBackendName(hw.haptics.backend),
+    bpad::hapticsBackendName(hw.haptics.backend),
     hw.haptics.count);
 
   Wire.begin(hw.i2c.sda, hw.i2c.scl);
@@ -44,15 +44,15 @@ void setup() {
 
 void loop() {
   // 1. Test individual motors in sequence
-  const bpadMotor motors[] = {
-    bpadMotor::TopLeft,
-    bpadMotor::TopRight,
-    bpadMotor::BottomRight,
-    bpadMotor::BottomLeft
+  const bpad::Motor motors[] = {
+    bpad::Motor::TopLeft,
+    bpad::Motor::TopRight,
+    bpad::Motor::BottomRight,
+    bpad::Motor::BottomLeft
   };
 
-  for (bpadMotor m : motors) {
-    Serial.printf("  Testing %s\n", bpadMotorName(m));
+  for (bpad::Motor m : motors) {
+    Serial.printf("  Testing %s\n", bpad::motorName(m));
     haptics.pulse(m, 200, hw.haptics.dacOnValue);
 
     while (haptics.isActive(m)) {

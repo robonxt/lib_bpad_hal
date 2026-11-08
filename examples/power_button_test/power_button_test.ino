@@ -10,8 +10,8 @@
 #include <Arduino.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadPower pwr(hw.button);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Power pwr(hw.button);
 
 void setup() {
   Serial.begin(115200);

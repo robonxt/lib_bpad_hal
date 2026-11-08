@@ -7,8 +7,8 @@
 #include <Arduino.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadTouch touch(hw.touch);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Touch touch(hw.touch);
 
 void setup() {
   Serial.begin(115200);
@@ -29,11 +29,11 @@ void setup() {
 }
 
 void loop() {
-  bpadTouchData td = touch.read();
+  bpad::TouchData td = touch.read();
 
   if (td.pressed) {
     Serial.printf("[TOUCH] Pressed at X: %3u, Y: %3u | Delta: (%+3d, %+3d) | Gesture: %s\n",
-                  td.x, td.y, td.deltaX, td.deltaY, bpadGestureName(td.gesture));
+                  td.x, td.y, td.deltaX, td.deltaY, bpad::gestureName(td.gesture));
   }
 
   delay(15);

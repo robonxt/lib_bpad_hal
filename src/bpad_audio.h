@@ -14,24 +14,26 @@
 #include <Wire.h>
 #include "bpad_config.h"
 
-enum class bpadWaveform : uint8_t {
+namespace bpad {
+
+enum class Waveform : uint8_t {
   Triangle = 0, // Default: cleanest and smoothest on miniature bpad speaker
   Sine     = 1,
   Square   = 2
 };
 
-class bpadAudio {
+class Audio {
 public:
-  explicit bpadAudio(const bpadAudioConfig& config = bpadAudioConfig())
+  explicit Audio(const AudioConfig& config = AudioConfig())
     : _cfg(config) {}
 
-  void select(const bpadAudioConfig& config) {
+  void select(const AudioConfig& config) {
     _cfg = config;
   }
 
   bool begin(TwoWire& wire = Wire) {
     _wire = &wire;
-    if (_cfg.support == bpadSupport::NotPresent || _cfg.backend == bpadAudioBackend::None) {
+    if (_cfg.support == Support::NotPresent || _cfg.backend == AudioBackend::None) {
       return false;
     }
 
@@ -42,7 +44,7 @@ public:
       _ampEnabled = false;
     }
 
-    if (_cfg.backend == bpadAudioBackend::MCP4725) {
+    if (_cfg.backend == AudioBackend::MCP4725) {
       _wire->beginTransmission(_cfg.mcp4725Address);
       _ready = (_wire->endTransmission() == 0);
       if (_ready) {
@@ -108,7 +110,7 @@ public:
   // MCP4725 Power-Down mode: pulls VOUT to GND with 1k resistor
   void powerDownDAC() {
     if (!_wire || !_ready) return;
-    if (_cfg.backend == bpadAudioBackend::MCP4725) {
+    if (_cfg.backend == AudioBackend::MCP4725) {
       _wire->beginTransmission(_cfg.mcp4725Address);
       // Fast mode write: bits 7-6 = 00, bits 5-4 = 01 (1k pull-down to GND power down)
       _wire->write(0x10);
@@ -121,7 +123,7 @@ public:
   void writeSampleDirect(uint16_t sample12bit) {
     if (!_wire || !_ready) return;
 
-    if (_cfg.backend == bpadAudioBackend::MCP4725) {
+    if (_cfg.backend == AudioBackend::MCP4725) {
       _wire->beginTransmission(_cfg.mcp4725Address);
       _wire->write((sample12bit >> 8) & 0x0F);
       _wire->write(sample12bit & 0xFF);
@@ -138,16 +140,16 @@ public:
     writeSampleDirect((uint16_t)constrain(scaled, 0, 4095));
   }
 
-  void setWaveform(bpadWaveform wave) {
+  void setWaveform(Waveform wave) {
     _waveform = wave;
   }
 
-  bpadWaveform getWaveform() const {
+  Waveform getWaveform() const {
     return _waveform;
   }
 
   // Smooth Non-blocking Tone Generator (Default: Triangle wave for cleanest acoustics)
-  void playTone(uint32_t freqHz, uint32_t durationMs = 0, bpadWaveform wave = bpadWaveform::Triangle) {
+  void playTone(uint32_t freqHz, uint32_t durationMs = 0, Waveform wave = Waveform::Triangle) {
     if (!_wire || !_ready || freqHz == 0) {
       stop();
       return;
@@ -194,7 +196,7 @@ public:
       int32_t maxAmp = (int32_t)(1400.0f * _volMultiplier);
 
       switch (_waveform) {
-        case bpadWaveform::Triangle: // Cleanest on micro-speaker
+        case Waveform::Triangle: // Cleanest on micro-speaker
         default:
           if (phase16 < 32768) {
             sample = (2048 - maxAmp) + (int32_t)((int64_t)maxAmp * 2 * phase16 / 32768);
@@ -203,11 +205,11 @@ public:
           }
           break;
 
-        case bpadWaveform::Square:
+        case Waveform::Square:
           sample = (phase16 < 32768) ? (2048 + maxAmp) : (2048 - maxAmp);
           break;
 
-        case bpadWaveform::Sine: {
+        case Waveform::Sine: {
           uint8_t idx = (phase16 >> 11) & 0x1F;
           sample = 2048 + ((int32_t)SINE_32[idx] * maxAmp / 1000);
           break;
@@ -220,15 +222,15 @@ public:
 
   bool isPlaying() const { return _isPlayingTone; }
   bool isReady() const { return _ready; }
-  const bpadAudioConfig& config() const { return _cfg; }
+  const AudioConfig& config() const { return _cfg; }
 
 private:
-  bpadAudioConfig _cfg;
+  AudioConfig _cfg;
   TwoWire* _wire = nullptr;
   bool _ready = false;
   bool _ampEnabled = false;
 
-  bpadWaveform _waveform = bpadWaveform::Triangle;
+  Waveform _waveform = Waveform::Triangle;
   uint8_t _volumeLevel = 3;
   uint8_t _unmuteVolume = 3;
   bool _isMuted = false;
@@ -249,3 +251,5 @@ private:
    -1000, -981, -924, -831, -707, -556, -383, -195
   };
 };
+
+} // namespace bpad

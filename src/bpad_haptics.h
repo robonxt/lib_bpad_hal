@@ -17,55 +17,57 @@
 #include <Wire.h>
 #include "bpad_config.h"
 
-enum class bpadMotor : uint8_t {
+namespace bpad {
+
+enum class Motor : uint8_t {
   BottomLeft  = 0, // Channel 0 (White wires)
   BottomRight = 1, // Channel 1 (Black wires)
   TopLeft     = 2, // Channel 2 (Red wires)
   TopRight    = 3  // Channel 3 (Blue wires)
 };
 
-constexpr uint8_t BPAD_MOTOR_BL = 0;
-constexpr uint8_t BPAD_MOTOR_BR = 1;
-constexpr uint8_t BPAD_MOTOR_TL = 2;
-constexpr uint8_t BPAD_MOTOR_TR = 3;
+constexpr uint8_t MOTOR_BL = 0;
+constexpr uint8_t MOTOR_BR = 1;
+constexpr uint8_t MOTOR_TL = 2;
+constexpr uint8_t MOTOR_TR = 3;
 
-inline const char* bpadMotorName(bpadMotor motor) {
+inline const char* motorName(Motor motor) {
   switch (motor) {
-    case bpadMotor::BottomLeft:  return "Bottom-Left (White)";
-    case bpadMotor::BottomRight: return "Bottom-Right (Black)";
-    case bpadMotor::TopLeft:     return "Top-Left (Red)";
-    case bpadMotor::TopRight:    return "Top-Right (Blue)";
+    case Motor::BottomLeft:  return "Bottom-Left (White)";
+    case Motor::BottomRight: return "Bottom-Right (Black)";
+    case Motor::TopLeft:     return "Top-Left (Red)";
+    case Motor::TopRight:    return "Top-Right (Blue)";
     default: return "Unknown";
   }
 }
 
-inline const char* bpadMotorName(uint8_t index) {
-  return bpadMotorName(static_cast<bpadMotor>(index));
+inline const char* motorName(uint8_t index) {
+  return motorName(static_cast<Motor>(index));
 }
 
-class bpadHaptics {
+class Haptics {
 public:
-  explicit bpadHaptics(const bpadHapticsConfig& config = bpadHapticsConfig())
+  explicit Haptics(const HapticsConfig& config = HapticsConfig())
     : _cfg(config) {}
 
-  void select(const bpadHapticsConfig& config) {
+  void select(const HapticsConfig& config) {
     _cfg = config;
   }
 
   bool begin(TwoWire& wire = Wire) {
     _wire = &wire;
-    if (_cfg.support == bpadSupport::NotPresent || _cfg.backend == bpadHapticsBackend::None) {
+    if (_cfg.support == Support::NotPresent || _cfg.backend == HapticsBackend::None) {
       return false;
     }
 
-    if (_cfg.backend == bpadHapticsBackend::GPIO_PWM) {
+    if (_cfg.backend == HapticsBackend::GPIO_PWM) {
       for (uint8_t i = 0; i < _cfg.count && i < 4; i++) {
         ledcAttach(_cfg.gpioPins[i], _cfg.pwmFreq, _cfg.pwmResolution);
         ledcWrite(_cfg.gpioPins[i], 0);
       }
       _ready = true;
       return true;
-    } else if (_cfg.backend == bpadHapticsBackend::MCP4728_DAC) {
+    } else if (_cfg.backend == HapticsBackend::MCP4728_DAC) {
       _wire->beginTransmission(_cfg.mcp4728Address);
       if (_wire->endTransmission() == 0) {
         _ready = true;
@@ -86,7 +88,7 @@ public:
     _strengths[2] = m2;
     _strengths[3] = m3;
 
-    if (_cfg.backend == bpadHapticsBackend::MCP4728_DAC && _wire) {
+    if (_cfg.backend == HapticsBackend::MCP4728_DAC && _wire) {
       _wire->beginTransmission(_cfg.mcp4728Address);
       // Fast Write command: bits[7:3] = 00000, bit[2:1] = DAC channel, bit[0] = UDAC
       // Consecutive 2-byte pairs automatically write Ch0, Ch1, Ch2, Ch3
@@ -112,10 +114,10 @@ public:
 
     _strengths[index] = strength;
 
-    if (_cfg.backend == bpadHapticsBackend::GPIO_PWM) {
+    if (_cfg.backend == HapticsBackend::GPIO_PWM) {
       uint32_t duty = (strength > 255) ? (strength >> 4) : strength;
       ledcWrite(_cfg.gpioPins[index], duty);
-    } else if (_cfg.backend == bpadHapticsBackend::MCP4728_DAC) {
+    } else if (_cfg.backend == HapticsBackend::MCP4728_DAC) {
       uint8_t ch = _cfg.mcp4728Channels[index];
       if (ch == 0xFF || !_wire) return;
 
@@ -145,15 +147,15 @@ public:
   }
 
   // --- Motor control by spatial position enum ---
-  void setMotor(bpadMotor motor, uint16_t strength) {
+  void setMotor(Motor motor, uint16_t strength) {
     setMotor(static_cast<uint8_t>(motor), strength);
   }
 
-  void pulse(bpadMotor motor, uint16_t onDurationMs, uint16_t strength = 4095) {
+  void pulse(Motor motor, uint16_t onDurationMs, uint16_t strength = 4095) {
     pulse(static_cast<uint8_t>(motor), onDurationMs, strength);
   }
 
-  void stop(bpadMotor motor) {
+  void stop(Motor motor) {
     stop(static_cast<uint8_t>(motor));
   }
 
@@ -165,27 +167,27 @@ public:
   }
 
   void pulseLeft(uint16_t onDurationMs, uint16_t strength = 4095) {
-    pulse(bpadMotor::TopLeft, onDurationMs, strength);
-    pulse(bpadMotor::BottomLeft, onDurationMs, strength);
+    pulse(Motor::TopLeft, onDurationMs, strength);
+    pulse(Motor::BottomLeft, onDurationMs, strength);
   }
 
   void pulseRight(uint16_t onDurationMs, uint16_t strength = 4095) {
-    pulse(bpadMotor::TopRight, onDurationMs, strength);
-    pulse(bpadMotor::BottomRight, onDurationMs, strength);
+    pulse(Motor::TopRight, onDurationMs, strength);
+    pulse(Motor::BottomRight, onDurationMs, strength);
   }
 
   void pulseTop(uint16_t onDurationMs, uint16_t strength = 4095) {
-    pulse(bpadMotor::TopLeft, onDurationMs, strength);
-    pulse(bpadMotor::TopRight, onDurationMs, strength);
+    pulse(Motor::TopLeft, onDurationMs, strength);
+    pulse(Motor::TopRight, onDurationMs, strength);
   }
 
   void pulseBottom(uint16_t onDurationMs, uint16_t strength = 4095) {
-    pulse(bpadMotor::BottomLeft, onDurationMs, strength);
-    pulse(bpadMotor::BottomRight, onDurationMs, strength);
+    pulse(Motor::BottomLeft, onDurationMs, strength);
+    pulse(Motor::BottomRight, onDurationMs, strength);
   }
 
   void stopAll() {
-    if (_cfg.backend == bpadHapticsBackend::MCP4728_DAC && _wire && _ready) {
+    if (_cfg.backend == HapticsBackend::MCP4728_DAC && _wire && _ready) {
       for (uint8_t i = 0; i < 4; i++) {
         _active[i] = false;
       }
@@ -215,7 +217,7 @@ public:
     return _active[index];
   }
 
-  bool isActive(bpadMotor motor) const {
+  bool isActive(Motor motor) const {
     return isActive(static_cast<uint8_t>(motor));
   }
 
@@ -231,15 +233,15 @@ public:
     return _strengths[index];
   }
 
-  uint16_t getStrength(bpadMotor motor) const {
+  uint16_t getStrength(Motor motor) const {
     return getStrength(static_cast<uint8_t>(motor));
   }
 
   bool isReady() const { return _ready; }
-  const bpadHapticsConfig& config() const { return _cfg; }
+  const HapticsConfig& config() const { return _cfg; }
 
 private:
-  bpadHapticsConfig _cfg;
+  HapticsConfig _cfg;
   TwoWire* _wire = nullptr;
   bool _ready = false;
 
@@ -248,3 +250,5 @@ private:
   uint16_t _duration[4] = {0, 0, 0, 0};
   uint16_t _strengths[4] = {0, 0, 0, 0};
 };
+
+} // namespace bpad

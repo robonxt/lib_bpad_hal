@@ -8,7 +8,7 @@
 #include <Wire.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
+const bpad::Config hw = bpad::Config::defaultBoard();
 
 struct KnownDevice {
   uint8_t addr;
@@ -101,11 +101,11 @@ void setup() {
     Serial.printf("  %-8s 0x%02X (%-20s) -> %s\n", label, addr, desc, ok ? "[OK]" : "[MISSING]");
   };
 
-  checkDevice("touch",   hw.touch.address,   hw.touch.controller,                     hw.touch.support == bpadSupport::Present);
-  checkDevice("imu",     hw.imu.address,     bpadIMUBackendName(hw.imu.backend),      hw.imu.support == bpadSupport::Present);
-  checkDevice("compass", hw.compass.address, hw.compass.device,                       hw.compass.support == bpadSupport::Present);
-  checkDevice("audio",   hw.audio.mcp4725Address, "MCP4725 DAC",                      hw.audio.support == bpadSupport::Present);
-  checkDevice("haptics", hw.haptics.mcp4728Address, "MCP4728 DAC",                    hw.haptics.support == bpadSupport::Present);
+  checkDevice("touch",   hw.touch.address,   hw.touch.controller,                     hw.touch.support == bpad::Support::Present);
+  checkDevice("imu",     hw.imu.address,     bpad::imuBackendName(hw.imu.backend),    hw.imu.support == bpad::Support::Present);
+  checkDevice("compass", hw.compass.address, hw.compass.device,                       hw.compass.support == bpad::Support::Present);
+  checkDevice("audio",   hw.audio.mcp4725Address, "MCP4725 DAC",                      hw.audio.support == bpad::Support::Present);
+  checkDevice("haptics", hw.haptics.mcp4728Address, "MCP4728 DAC",                    hw.haptics.support == bpad::Support::Present);
 
   Serial.println("\n[i2c_scan] Scan complete.");
 }

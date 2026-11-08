@@ -6,10 +6,11 @@
 //
 //  Usage:
 //    #include <bpad_hal.h>
-//    const bpadConfig hw = bpadConfig::defaultBoard(); // or bpad185()
+//    const bpad::Config hw = bpad::Config::defaultBoard(); // or bpad185()
 //
 //  Unified driver classes:
-//    bpadDisplay, bpadTouch, bpadIMU, bpadCompass, bpadAudio, bpadHaptics, bpadStorage
+//    bpad::Display, bpad::Touch, bpad::IMU, bpad::Compass, bpad::Audio,
+//    bpad::Haptics, bpad::Storage, bpad::Power
 // =============================================================================
 
 #include "bpad_config.h"

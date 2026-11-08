@@ -8,8 +8,8 @@
 #include <Arduino.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadDisplay display(hw.display);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Display display(hw.display);
 
 void setup() {
   Serial.begin(115200);
@@ -20,7 +20,7 @@ void setup() {
 
   Serial.printf("[display_test] board=%s  backend=%s  res=%ux%u\n",
     hw.name,
-    bpadDisplayBackendName(hw.display.backend),
+    bpad::displayBackendName(hw.display.backend),
     hw.display.width,
     hw.display.height);
 

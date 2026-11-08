@@ -9,8 +9,8 @@
 #include <bpad_hal.h>
 #include <math.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadAudio audio(hw.audio);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Audio audio(hw.audio);
 
 // Note Frequencies (Hz)
 #define NOTE_G4  392
@@ -61,7 +61,7 @@ void setup() {
 
   Serial.printf("[audio_synth] board=%s  backend=%s  addr=0x%02X  ampPower=GPIO%d\n",
     hw.name,
-    bpadAudioBackendName(hw.audio.backend),
+    bpad::audioBackendName(hw.audio.backend),
     hw.audio.mcp4725Address,
     hw.audio.ampPower);
 

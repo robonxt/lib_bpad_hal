@@ -2,34 +2,41 @@
 # bpad_hal keywords
 #######################################
 
-bpadConfig	KEYWORD1
-bpadBoard	KEYWORD1
-bpadSupport	KEYWORD1
-bpadI2CConfig	KEYWORD1
-bpadDisplayConfig	KEYWORD1
-bpadTouchConfig	KEYWORD1
-bpadAudioConfig	KEYWORD1
-bpadHapticsConfig	KEYWORD1
-bpadIMUConfig	KEYWORD1
-bpadStorageConfig	KEYWORD1
-bpadWirelessConfig	KEYWORD1
-bpadSystemConfig	KEYWORD1
+bpad	KEYWORD1
+Config	KEYWORD1
+Board	KEYWORD1
+Support	KEYWORD1
+I2CConfig	KEYWORD1
+DisplayConfig	KEYWORD1
+TouchConfig	KEYWORD1
+AudioConfig	KEYWORD1
+HapticsConfig	KEYWORD1
+IMUConfig	KEYWORD1
+CompassConfig	KEYWORD1
+StorageConfig	KEYWORD1
+WirelessConfig	KEYWORD1
+SystemConfig	KEYWORD1
+ButtonConfig	KEYWORD1
 
-bpadDisplay	KEYWORD1
-bpadTouch	KEYWORD1
-bpadIMU	KEYWORD1
-bpadCompass	KEYWORD1
-bpadAudio	KEYWORD1
-bpadHaptics	KEYWORD1
-bpadStorage	KEYWORD1
+Display	KEYWORD1
+Touch	KEYWORD1
+IMU	KEYWORD1
+Compass	KEYWORD1
+Audio	KEYWORD1
+Haptics	KEYWORD1
+Storage	KEYWORD1
+Power	KEYWORD1
 
-bpadDisplayBackend	KEYWORD1
-bpadAudioBackend	KEYWORD1
-bpadHapticsBackend	KEYWORD1
-bpadIMUBackend	KEYWORD1
-bpadStorageBackend	KEYWORD1
-bpadMotor	KEYWORD1
-bpadTouchMode	KEYWORD1
+DisplayBackend	KEYWORD1
+AudioBackend	KEYWORD1
+HapticsBackend	KEYWORD1
+IMUBackend	KEYWORD1
+StorageBackend	KEYWORD1
+Motor	KEYWORD1
+TouchMode	KEYWORD1
+Gesture	KEYWORD1
+Waveform	KEYWORD1
+ButtonEvent	KEYWORD1
 
 bpad185	KEYWORD2
 defaultBoard	KEYWORD2
@@ -41,13 +48,14 @@ haptics	KEYWORD2
 imu	KEYWORD2
 compass	KEYWORD2
 storage	KEYWORD2
+button	KEYWORD2
 wireless	KEYWORD2
 system	KEYWORD2
 
-bpadBoardName	KEYWORD2
-bpadSupportName	KEYWORD2
-bpadDisplayBackendName	KEYWORD2
-bpadAudioBackendName	KEYWORD2
-bpadHapticsBackendName	KEYWORD2
-bpadIMUBackendName	KEYWORD2
-bpadStorageBackendName	KEYWORD2
+boardName	KEYWORD2
+supportName	KEYWORD2
+displayBackendName	KEYWORD2
+audioBackendName	KEYWORD2
+hapticsBackendName	KEYWORD2
+imuBackendName	KEYWORD2
+storageBackendName	KEYWORD2

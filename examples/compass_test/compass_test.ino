@@ -8,8 +8,8 @@
 #include <Wire.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadCompass compass(hw.compass);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Compass compass(hw.compass);
 
 void setup() {
   Serial.begin(115200);
@@ -19,9 +19,9 @@ void setup() {
   delay(500);
 
   Serial.printf("[compass_test] board=%s  device=%s  addr=0x%02X  status=%s\n",
-    hw.name, hw.compass.device, hw.compass.address, bpadSupportName(hw.compass.support));
+    hw.name, hw.compass.device, hw.compass.address, bpad::supportName(hw.compass.support));
 
-  if (hw.compass.support == bpadSupport::NotPresent) {
+  if (hw.compass.support == bpad::Support::NotPresent) {
     Serial.println("[compass_test] Notice: Compass is not populated on this board profile.");
     if (hw.compass.note && strlen(hw.compass.note) > 0) {
       Serial.printf("[compass_test] Note: %s\n", hw.compass.note);
@@ -46,7 +46,7 @@ void setup() {
 }
 
 void loop() {
-  if (hw.compass.support == bpadSupport::NotPresent) {
+  if (hw.compass.support == bpad::Support::NotPresent) {
     delay(1000);
     return;
   }

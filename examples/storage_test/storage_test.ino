@@ -8,8 +8,8 @@
 #include <Arduino.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadStorage storage(hw.storage);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Storage storage(hw.storage);
 
 void setup() {
   Serial.begin(115200);
@@ -20,7 +20,7 @@ void setup() {
 
   Serial.printf("\n[storage_test] board=%s  backend=%s  device=%s\n",
     hw.name,
-    bpadStorageBackendName(hw.storage.backend),
+    bpad::storageBackendName(hw.storage.backend),
     hw.storage.device);
 
   Serial.println("[storage_test] Mounting storage subsystem...");

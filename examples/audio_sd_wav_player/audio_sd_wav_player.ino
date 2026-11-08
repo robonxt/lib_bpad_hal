@@ -22,9 +22,9 @@
 #include <AudioFileSourceFS.h>
 #include <AudioOutput.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadAudio audio(hw.audio);
-bpadPower pwr(hw.button);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Audio audio(hw.audio);
+bpad::Power pwr(hw.button);
 
 USBMSC msc;
 bool mscActive = false;

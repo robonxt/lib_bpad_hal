@@ -1,6 +1,6 @@
 {
   "name": "bpad_hal",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Hardware Abstraction Layer for bpad 185 and next-generation bpad hardware.",
   "keywords": "esp32, bpad, hal, st77916, qspi, touch, cst816s, icm42607, mmc5603nj, mcp4725, mcp4728, sdmmc",
   "authors": [

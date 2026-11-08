@@ -7,12 +7,12 @@
 #include <Arduino.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
+const bpad::Config hw = bpad::Config::defaultBoard();
 
-void printSupport(const char* label, bpadSupport support) {
+void printSupport(const char* label, bpad::Support support) {
   Serial.print(label);
   Serial.print(": ");
-  Serial.println(bpadSupportName(support));
+  Serial.println(bpad::supportName(support));
 }
 
 void setup() {
@@ -38,7 +38,7 @@ void setup() {
   Serial.print("[display] ");
   Serial.print(hw.display.controller);
   Serial.print(" (");
-  Serial.print(bpadDisplayBackendName(hw.display.backend));
+  Serial.print(bpad::displayBackendName(hw.display.backend));
   Serial.print(") ");
   Serial.print(hw.display.width);
   Serial.print("x");
@@ -72,21 +72,21 @@ void setup() {
   Serial.println(hw.touch.rst);
 
   Serial.print("[audio] backend=");
-  Serial.print(bpadAudioBackendName(hw.audio.backend));
+  Serial.print(bpad::audioBackendName(hw.audio.backend));
   Serial.print(" ampPower=GPIO");
   Serial.print(hw.audio.ampPower);
   Serial.print(" mcp4725=0x");
   Serial.println(hw.audio.mcp4725Address, HEX);
 
   Serial.print("[haptics] backend=");
-  Serial.print(bpadHapticsBackendName(hw.haptics.backend));
+  Serial.print(bpad::hapticsBackendName(hw.haptics.backend));
   Serial.print(" motors=");
   Serial.print(hw.haptics.count);
   Serial.print(" mcp4728=0x");
   Serial.println(hw.haptics.mcp4728Address, HEX);
 
   Serial.print("[imu] backend=");
-  Serial.print(bpadIMUBackendName(hw.imu.backend));
+  Serial.print(bpad::imuBackendName(hw.imu.backend));
   Serial.print(" addr=0x");
   Serial.print(hw.imu.address, HEX);
   Serial.print(" rotation=");
@@ -99,7 +99,7 @@ void setup() {
   Serial.println(hw.compass.address, HEX);
 
   Serial.print("[storage] backend=");
-  Serial.print(bpadStorageBackendName(hw.storage.backend));
+  Serial.print(bpad::storageBackendName(hw.storage.backend));
   Serial.print(" device=");
   Serial.println(hw.storage.device);
 

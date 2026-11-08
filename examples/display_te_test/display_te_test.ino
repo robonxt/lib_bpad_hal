@@ -10,8 +10,8 @@
 #include <Arduino.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadDisplay display(hw.display);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Display display(hw.display);
 
 // Full-frame double buffer (PSRAM allocated)
 static uint16_t* frameBuffer = nullptr;

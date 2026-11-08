@@ -15,7 +15,7 @@
 
 #include "test_audio.8k.h"
 
-const bpadConfig hw = bpadConfig::defaultBoard();
+const bpad::Config hw = bpad::Config::defaultBoard();
 
 class AudioOutputI2CDAC : public AudioOutput {
 private:

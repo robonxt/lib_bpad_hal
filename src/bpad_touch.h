@@ -10,20 +10,22 @@
 #include <Wire.h>
 #include "bpad_config.h"
 
-enum class bpadTouchMode : uint8_t {
+namespace bpad {
+
+enum class TouchMode : uint8_t {
   NativeHardware = 0, // Pure CST816 on-chip DSP gestures (register 0x01) with edge-triggering
   CustomSoftware = 1  // Custom software timing, delta tracking, and swipe engine
 };
 
-inline const char* bpadTouchModeName(bpadTouchMode mode) {
+inline const char* touchModeName(TouchMode mode) {
   switch (mode) {
-    case bpadTouchMode::NativeHardware: return "Native Hardware (CST816 DSP)";
-    case bpadTouchMode::CustomSoftware: return "Custom Software Engine";
+    case TouchMode::NativeHardware: return "Native Hardware (CST816 DSP)";
+    case TouchMode::CustomSoftware: return "Custom Software Engine";
     default: return "Unknown";
   }
 }
 
-enum class bpadGesture : uint8_t {
+enum class Gesture : uint8_t {
   None = 0x00,
   SwipeDown = 0x01,
   SwipeUp = 0x02,
@@ -35,44 +37,44 @@ enum class bpadGesture : uint8_t {
   Unknown = 0xFF
 };
 
-inline const char* bpadGestureName(bpadGesture gesture) {
+inline const char* gestureName(Gesture gesture) {
   switch (gesture) {
-    case bpadGesture::None: return "none";
-    case bpadGesture::SwipeDown: return "swipe down";
-    case bpadGesture::SwipeUp: return "swipe up";
-    case bpadGesture::SwipeLeft: return "swipe left";
-    case bpadGesture::SwipeRight: return "swipe right";
-    case bpadGesture::Tap: return "tap";
-    case bpadGesture::DoubleTap: return "double tap";
-    case bpadGesture::LongPress: return "long press";
+    case Gesture::None: return "none";
+    case Gesture::SwipeDown: return "swipe down";
+    case Gesture::SwipeUp: return "swipe up";
+    case Gesture::SwipeLeft: return "swipe left";
+    case Gesture::SwipeRight: return "swipe right";
+    case Gesture::Tap: return "tap";
+    case Gesture::DoubleTap: return "double tap";
+    case Gesture::LongPress: return "long press";
     default: return "unknown";
   }
 }
 
-struct bpadTouchData {
+struct TouchData {
   uint16_t x = 0;
   uint16_t y = 0;
   uint16_t rawX = 0;
   uint16_t rawY = 0;
   bool pressed = false;
   uint8_t rawGesture = 0;
-  bpadGesture gesture = bpadGesture::None;
+  Gesture gesture = Gesture::None;
   int16_t deltaX = 0;
   int16_t deltaY = 0;
 };
 
-class bpadTouch {
+class Touch {
 public:
-  explicit bpadTouch(const bpadTouchConfig& config = bpadTouchConfig())
+  explicit Touch(const TouchConfig& config = TouchConfig())
     : _cfg(config) {}
 
-  void select(const bpadTouchConfig& config) {
+  void select(const TouchConfig& config) {
     _cfg = config;
   }
 
   bool begin(TwoWire& wire = Wire) {
     _wire = &wire;
-    if (_cfg.support == bpadSupport::NotPresent) {
+    if (_cfg.support == Support::NotPresent) {
       return false;
     }
 
@@ -104,14 +106,14 @@ public:
     return _ready;
   }
 
-  bpadTouchData read() {
+  TouchData read() {
     uint32_t now = millis();
     if (now - _lastPollMs < 10) {
       return _lastData;
     }
     _lastPollMs = now;
 
-    bpadTouchData td;
+    TouchData td;
     if (!_wire) return td;
 
     // Read 6 bytes starting at register 0x01:
@@ -175,16 +177,16 @@ public:
 
   // Classic getTouch signature matching CST816D driver API
   bool getTouch(uint16_t* x, uint16_t* y, uint8_t* gesture = nullptr) {
-    bpadTouchData td = read();
+    TouchData td = read();
     if (x) *x = td.x;
     if (y) *y = td.y;
     if (gesture) *gesture = td.rawGesture;
     return td.pressed;
   }
 
-  // Overload returning normalized bpadGesture enum
-  bool getTouch(uint16_t* x, uint16_t* y, bpadGesture* gesture) {
-    bpadTouchData td = read();
+  // Overload returning normalized Gesture enum
+  bool getTouch(uint16_t* x, uint16_t* y, Gesture* gesture) {
+    TouchData td = read();
     if (x) *x = td.x;
     if (y) *y = td.y;
     if (gesture) *gesture = td.gesture;
@@ -197,7 +199,7 @@ public:
   uint16_t y() const { return _lastData.y; }
   int16_t deltaX() const { return _lastData.deltaX; }
   int16_t deltaY() const { return _lastData.deltaY; }
-  bpadGesture gesture() const { return _lastData.gesture; }
+  Gesture gesture() const { return _lastData.gesture; }
   uint8_t rawGesture() const { return _lastData.rawGesture; }
 
   // --- Coordinate Transformation Setters ---
@@ -220,26 +222,26 @@ public:
   bool isInvertedY() const { return _invertY; }
 
   // --- Gesture Engine Mode ---
-  void setTouchMode(bpadTouchMode mode) {
+  void setTouchMode(TouchMode mode) {
     _touchMode = mode;
     _lastReportedHwGesture = 0;
     _softwareGestureReported = false;
   }
 
-  bpadTouchMode getTouchMode() const {
+  TouchMode getTouchMode() const {
     return _touchMode;
   }
 
   bool isReady() const { return _ready; }
-  const bpadTouchConfig& config() const { return _cfg; }
+  const TouchConfig& config() const { return _cfg; }
 
 private:
-  bpadTouchConfig _cfg;
+  TouchConfig _cfg;
   TwoWire* _wire = nullptr;
   bool _ready = false;
   uint32_t _lastPollMs = 0;
 
-  bpadTouchMode _touchMode = bpadTouchMode::NativeHardware;
+  TouchMode _touchMode = TouchMode::NativeHardware;
   uint8_t _lastReportedHwGesture = 0;
   bool _softwareGestureReported = false;
 
@@ -249,7 +251,7 @@ private:
   bool _invertX = false;
   bool _invertY = false;
 
-  bpadTouchData _lastData;
+  TouchData _lastData;
   uint16_t _lastRawX = 0;
   uint16_t _lastRawY = 0;
   uint16_t _startX = 0;
@@ -318,21 +320,21 @@ private:
     _wire->endTransmission();
   }
 
-  bpadGesture normalizeRawGesture(uint8_t raw) {
+  Gesture normalizeRawGesture(uint8_t raw) {
     switch (raw) {
-      case 0x01: return bpadGesture::SwipeUp;
-      case 0x02: return bpadGesture::SwipeDown;
-      case 0x03: return bpadGesture::SwipeLeft;
-      case 0x04: return bpadGesture::SwipeRight;
-      case 0x05: return bpadGesture::Tap;
-      case 0x0B: return bpadGesture::DoubleTap;
-      case 0x0C: return bpadGesture::LongPress;
-      default:   return bpadGesture::None;
+      case 0x01: return Gesture::SwipeUp;
+      case 0x02: return Gesture::SwipeDown;
+      case 0x03: return Gesture::SwipeLeft;
+      case 0x04: return Gesture::SwipeRight;
+      case 0x05: return Gesture::Tap;
+      case 0x0B: return Gesture::DoubleTap;
+      case 0x0C: return Gesture::LongPress;
+      default:   return Gesture::None;
     }
   }
 
-  bpadGesture processGesture(const bpadTouchData& td) {
-    if (_touchMode == bpadTouchMode::NativeHardware) {
+  Gesture processGesture(const TouchData& td) {
+    if (_touchMode == TouchMode::NativeHardware) {
       // --- Pure CST816 Hardware Gesture Mode ---
       // Hardware registers hold the gesture for ~20-50ms. Edge-trigger so it only fires ONCE.
       if (td.rawGesture != 0) {
@@ -343,11 +345,11 @@ private:
       } else {
         _lastReportedHwGesture = 0;
       }
-      return bpadGesture::None;
+      return Gesture::None;
     }
 
     // --- Custom Software Gesture Mode ---
-    bpadGesture hwGesture = normalizeRawGesture(td.rawGesture);
+    Gesture hwGesture = normalizeRawGesture(td.rawGesture);
 
     if (td.pressed) {
       if (!_tracking) {
@@ -358,7 +360,7 @@ private:
         _deltaX = 0;
         _deltaY = 0;
         _softwareGestureReported = false;
-        return bpadGesture::None;
+        return Gesture::None;
       }
 
       _deltaX = (int16_t)td.x - (int16_t)_startX;
@@ -368,11 +370,11 @@ private:
       if ((millis() - _touchStartMs >= 600) && abs(_deltaX) <= 10 && abs(_deltaY) <= 10) {
         if (!_softwareGestureReported) {
           _softwareGestureReported = true;
-          return bpadGesture::LongPress;
+          return Gesture::LongPress;
         }
       }
 
-      return bpadGesture::None;
+      return Gesture::None;
     }
 
     // Finger released in Software mode
@@ -386,30 +388,32 @@ private:
 
       if (_softwareGestureReported) {
         _softwareGestureReported = false;
-        return bpadGesture::None;
+        return Gesture::None;
       }
 
       // Software Swipe detection (movement >= 20px in >= 50ms)
       if (duration >= 50 && (abs(dx) >= 20 || abs(dy) >= 20)) {
         if (abs(dx) >= abs(dy)) {
-          return (dx > 0) ? bpadGesture::SwipeRight : bpadGesture::SwipeLeft;
+          return (dx > 0) ? Gesture::SwipeRight : Gesture::SwipeLeft;
         } else {
-          return (dy > 0) ? bpadGesture::SwipeDown : bpadGesture::SwipeUp;
+          return (dy > 0) ? Gesture::SwipeDown : Gesture::SwipeUp;
         }
       }
 
       // Software Tap detection (movement <= 10px in <= 250ms)
       if (duration <= 250 && abs(dx) <= 10 && abs(dy) <= 10) {
-        return bpadGesture::Tap;
+        return Gesture::Tap;
       }
 
       // Fallback to hardware gesture if software thresholds weren't met
-      if (hwGesture != bpadGesture::None) {
+      if (hwGesture != Gesture::None) {
         return hwGesture;
       }
     }
 
     _softwareGestureReported = false;
-    return bpadGesture::None;
+    return Gesture::None;
   }
 };
+
+} // namespace bpad

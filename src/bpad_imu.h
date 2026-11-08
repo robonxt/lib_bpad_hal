@@ -12,22 +12,24 @@
 #include <math.h>
 #include "bpad_config.h"
 
-class bpadIMU {
+namespace bpad {
+
+class IMU {
 public:
-  explicit bpadIMU(const bpadIMUConfig& config = bpadIMUConfig())
+  explicit IMU(const IMUConfig& config = IMUConfig())
     : _cfg(config) {}
 
-  void select(const bpadIMUConfig& config) {
+  void select(const IMUConfig& config) {
     _cfg = config;
   }
 
   bool begin(TwoWire& wire = Wire) {
     _wire = &wire;
-    if (_cfg.support == bpadSupport::NotPresent || _cfg.backend == bpadIMUBackend::None) {
+    if (_cfg.support == Support::NotPresent || _cfg.backend == IMUBackend::None) {
       return false;
     }
 
-    if (_cfg.backend == bpadIMUBackend::ICM42607) {
+    if (_cfg.backend == IMUBackend::ICM42607) {
       return initICM42607();
     }
 
@@ -37,7 +39,7 @@ public:
   bool update() {
     if (!_wire || !_ready) return false;
 
-    if (_cfg.backend == bpadIMUBackend::ICM42607) {
+    if (_cfg.backend == IMUBackend::ICM42607) {
       return readICM42607();
     }
 
@@ -135,10 +137,10 @@ public:
   }
 
   bool isReady() const { return _ready; }
-  const bpadIMUConfig& config() const { return _cfg; }
+  const IMUConfig& config() const { return _cfg; }
 
 private:
-  bpadIMUConfig _cfg;
+  IMUConfig _cfg;
   TwoWire* _wire = nullptr;
   bool _ready = false;
 
@@ -290,3 +292,5 @@ private:
     return true;
   }
 };
+
+} // namespace bpad

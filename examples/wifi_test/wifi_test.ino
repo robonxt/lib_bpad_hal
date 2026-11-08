@@ -12,7 +12,7 @@
 #include <esp_mac.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
+const bpad::Config hw = bpad::Config::defaultBoard();
 
 const char* wifiReasonToString(uint8_t reason) {
   switch (reason) {

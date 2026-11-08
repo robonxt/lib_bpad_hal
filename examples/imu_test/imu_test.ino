@@ -7,8 +7,8 @@
 #include <Wire.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
-bpadIMU imu(hw.imu);
+const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::IMU imu(hw.imu);
 
 void setup() {
   Serial.begin(115200);
@@ -19,7 +19,7 @@ void setup() {
 
   Serial.printf("[imu_test] board=%s  backend=%s  addr=0x%02X  offset=%d deg\n",
     hw.name,
-    bpadIMUBackendName(hw.imu.backend),
+    bpad::imuBackendName(hw.imu.backend),
     hw.imu.address,
     hw.imu.orientationOffsetDeg);
 
@@ -28,7 +28,7 @@ void setup() {
 
   if (!imu.begin(Wire)) {
     Serial.printf("[imu_test] IMU init FAILED (no response from %s at 0x%02X on SDA=%u SCL=%u)\n",
-      bpadIMUBackendName(hw.imu.backend),
+      bpad::imuBackendName(hw.imu.backend),
       hw.imu.address,
       hw.i2c.sda,
       hw.i2c.scl);

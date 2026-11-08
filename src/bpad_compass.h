@@ -12,6 +12,8 @@
 #include <math.h>
 #include "bpad_config.h"
 
+namespace bpad {
+
 // MMC5603NJ Register Map
 static constexpr uint8_t MMC5603_REG_OUT_X_L = 0x00;
 static constexpr uint8_t MMC5603_REG_OUT_TEMP = 0x09;
@@ -22,18 +24,18 @@ static constexpr uint8_t MMC5603_REG_CTRL1    = 0x1C;
 static constexpr uint8_t MMC5603_REG_CTRL2    = 0x1D;
 static constexpr uint8_t MMC5603_REG_PROD_ID  = 0x39;
 
-class bpadCompass {
+class Compass {
 public:
-  explicit bpadCompass(const bpadCompassConfig& config = bpadCompassConfig())
+  explicit Compass(const CompassConfig& config = CompassConfig())
     : _cfg(config) {}
 
-  void select(const bpadCompassConfig& config) {
+  void select(const CompassConfig& config) {
     _cfg = config;
   }
 
   bool begin(TwoWire& wire = Wire) {
     _wire = &wire;
-    if (_cfg.support == bpadSupport::NotPresent) {
+    if (_cfg.support == Support::NotPresent) {
       return false;
     }
 
@@ -260,10 +262,10 @@ public:
   }
 
   bool isReady() const { return _ready; }
-  const bpadCompassConfig& config() const { return _cfg; }
+  const CompassConfig& config() const { return _cfg; }
 
 private:
-  bpadCompassConfig _cfg;
+  CompassConfig _cfg;
   TwoWire* _wire = nullptr;
   bool _ready = false;
 
@@ -296,3 +298,5 @@ private:
     _wire->endTransmission();
   }
 };
+
+} // namespace bpad

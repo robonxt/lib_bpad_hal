@@ -15,7 +15,7 @@
 #include <SD_MMC.h>
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard();
+const bpad::Config hw = bpad::Config::defaultBoard();
 
 USBMSC msc;
 const char* configPath = "/usb_msc_config.txt";
@@ -134,7 +134,7 @@ void setup() {
 #endif
   delay(500);
 
-  Serial.printf("[usb_msc] board=%s  storage=%s\n", hw.name, bpadStorageBackendName(hw.storage.backend));
+  Serial.printf("[usb_msc] board=%s  storage=%s\n", hw.name, bpad::storageBackendName(hw.storage.backend));
 
   uint32_t sectorCount = 0;
 

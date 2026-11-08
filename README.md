@@ -1,24 +1,24 @@
 # bpad_hal
 
 Hardware Abstraction Layer for bpad 185 and next-generation bpad hardware. 
-Built natively for **ESP32 Arduino Core 3.x+ / ESP-IDF 5.x**.
+Built natively for **ESP32 Arduino Core 3.x+ / ESP-IDF 5.x** using clean C++ namespaces (`bpad::`).
 
 ## Quick Start
 
 ```cpp
 #include <bpad_hal.h>
 
-const bpadConfig hw = bpadConfig::defaultBoard(); // defaults to bpad185()
+const bpad::Config hw = bpad::Config::defaultBoard(); // defaults to bpad185()
 
 // Subsystem Drivers
-bpadDisplay display(hw.display);
-bpadTouch   touch(hw.touch);
-bpadPower   power(hw.button);
-bpadIMU     imu(hw.imu);
-bpadCompass compass(hw.compass);
-bpadAudio   audio(hw.audio);
-bpadHaptics haptics(hw.haptics);
-bpadStorage storage(hw.storage);
+bpad::Display display(hw.display);
+bpad::Touch   touch(hw.touch);
+bpad::Power   power(hw.button);
+bpad::IMU     imu(hw.imu);
+bpad::Compass compass(hw.compass);
+bpad::Audio   audio(hw.audio);
+bpad::Haptics haptics(hw.haptics);
+bpad::Storage storage(hw.storage);
 
 void setup() {
   Serial.begin(115200);

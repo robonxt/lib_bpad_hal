@@ -46,7 +46,7 @@ Four vibration motors driven by MCP4728 12-bit DAC at I2C address `0x60`:
 
 | DAC Channel | Motor Position | Wire Color | Enum Constant |
 |---|---|---|---|
-| **Channel 0** | Bottom-Left (BL) | White | `bpadMotor::BottomLeft` (`BPAD_MOTOR_BL`) |
-| **Channel 1** | Bottom-Right (BR) | Black | `bpadMotor::BottomRight` (`BPAD_MOTOR_BR`) |
-| **Channel 2** | Top-Left (TL) | Red | `bpadMotor::TopLeft` (`BPAD_MOTOR_TL`) |
-| **Channel 3** | Top-Right (TR) | Blue | `bpadMotor::TopRight` (`BPAD_MOTOR_TR`) |
+| **Channel 0** | Bottom-Left (BL) | White | `bpad::Motor::BottomLeft` (`bpad::MOTOR_BL`) |
+| **Channel 1** | Bottom-Right (BR) | Black | `bpad::Motor::BottomRight` (`bpad::MOTOR_BR`) |
+| **Channel 2** | Top-Left (TL) | Red | `bpad::Motor::TopLeft` (`bpad::MOTOR_TL`) |
+| **Channel 3** | Top-Right (TR) | Blue | `bpad::Motor::TopRight` (`bpad::MOTOR_TR`) |

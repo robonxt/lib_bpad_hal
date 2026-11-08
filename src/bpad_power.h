@@ -6,7 +6,7 @@
 //  of the IP5306 PMIC.
 //
 //  Capabilities:
-//  - Debounced button input (clicks, double-clicks, long-press holds)
+//  - Debounced button input (clicks, long-press holds)
 //  - Software power-off via IP5306 hardware double-pulse
 //  - Deep-sleep entry with GPIO 21 wake-on-press
 // =============================================================================
@@ -18,23 +18,25 @@
 #include "esp_sleep.h"
 #endif
 
-enum class bpadButtonEvent : uint8_t {
+namespace bpad {
+
+enum class ButtonEvent : uint8_t {
   None = 0,
   Click,
   LongPress
 };
 
-class bpadPower {
+class Power {
 public:
-  explicit bpadPower(const bpadButtonConfig& config = bpadButtonConfig())
+  explicit Power(const ButtonConfig& config = ButtonConfig())
     : _cfg(config) {}
 
-  void select(const bpadButtonConfig& config) {
+  void select(const ButtonConfig& config) {
     _cfg = config;
   }
 
   bool begin() {
-    if (_cfg.support == bpadSupport::NotPresent || _cfg.pin < 0) {
+    if (_cfg.support == Support::NotPresent || _cfg.pin < 0) {
       return false;
     }
 
@@ -80,20 +82,20 @@ public:
   }
 
   bool isClicked() {
-    return checkAndClearEvent(bpadButtonEvent::Click);
+    return checkAndClearEvent(ButtonEvent::Click);
   }
 
   bool isLongPressed() {
-    return checkAndClearEvent(bpadButtonEvent::LongPress);
+    return checkAndClearEvent(ButtonEvent::LongPress);
   }
 
-  bpadButtonEvent readEvent() {
-    bpadButtonEvent ev = _pendingEvent;
-    _pendingEvent = bpadButtonEvent::None;
+  ButtonEvent readEvent() {
+    ButtonEvent ev = _pendingEvent;
+    _pendingEvent = ButtonEvent::None;
     return ev;
   }
 
-  // Polls button and processes click, double-click, and long-press state machine
+  // Polls button and processes click and long-press state machine
   void update() {
     if (!_ready || _cfg.pin < 0) return;
 
@@ -122,7 +124,7 @@ public:
 
           // If released before long-press threshold, register immediate Click
           if (!_longPressFired && duration < _cfg.longPressMs) {
-            _pendingEvent = bpadButtonEvent::Click;
+            _pendingEvent = ButtonEvent::Click;
           }
         }
       }
@@ -130,7 +132,7 @@ public:
 
     // Check for long press while held down
     if (_pressed && !_longPressFired && (now - _pressStartMs) >= _cfg.longPressMs) {
-      _pendingEvent = bpadButtonEvent::LongPress;
+      _pendingEvent = ButtonEvent::LongPress;
       _longPressFired = true;
     }
   }
@@ -181,18 +183,18 @@ public:
   }
 
   bool isReady() const { return _ready; }
-  const bpadButtonConfig& config() const { return _cfg; }
+  const ButtonConfig& config() const { return _cfg; }
 
 private:
-  bool checkAndClearEvent(bpadButtonEvent target) {
+  bool checkAndClearEvent(ButtonEvent target) {
     if (_pendingEvent == target) {
-      _pendingEvent = bpadButtonEvent::None;
+      _pendingEvent = ButtonEvent::None;
       return true;
     }
     return false;
   }
 
-  bpadButtonConfig _cfg;
+  ButtonConfig _cfg;
   bool _ready = false;
 
   bool _pressed = false;
@@ -203,7 +205,7 @@ private:
   uint32_t _lastDebounceMs = 0;
   uint32_t _pressStartMs = 0;
   uint32_t _lastPressDuration = 0;
-  bpadButtonEvent _pendingEvent = bpadButtonEvent::None;
+  ButtonEvent _pendingEvent = ButtonEvent::None;
 
   bool readRawState() const {
     if (_cfg.pin < 0) return false;
@@ -211,3 +213,5 @@ private:
     return _cfg.activeLow ? (val == LOW) : (val == HIGH);
   }
 };
+
+} // namespace bpad

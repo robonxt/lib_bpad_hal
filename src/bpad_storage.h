@@ -12,21 +12,23 @@
 #include <SD_MMC.h>
 #include "bpad_config.h"
 
-class bpadStorage {
+namespace bpad {
+
+class Storage {
 public:
-  explicit bpadStorage(const bpadStorageConfig& config = bpadStorageConfig())
+  explicit Storage(const StorageConfig& config = StorageConfig())
     : _cfg(config) {}
 
-  void select(const bpadStorageConfig& config) {
+  void select(const StorageConfig& config) {
     _cfg = config;
   }
 
   bool mount(const char* mountPoint = "/sd", bool formatOnFail = false) {
-    if (_cfg.support == bpadSupport::NotPresent || _cfg.backend == bpadStorageBackend::None) {
+    if (_cfg.support == Support::NotPresent || _cfg.backend == StorageBackend::None) {
       return false;
     }
 
-    if (_cfg.backend == bpadStorageBackend::SD_MMC_4Wire) {
+    if (_cfg.backend == StorageBackend::SD_MMC_4Wire) {
       // Stabilization delay for SD-NAND chips (XinYY SD32G requires >= 250ms)
       delay(300);
 
@@ -59,7 +61,7 @@ public:
 
   void unmount() {
     if (!_mounted) return;
-    if (_cfg.backend == bpadStorageBackend::SD_MMC_4Wire) {
+    if (_cfg.backend == StorageBackend::SD_MMC_4Wire) {
       SD_MMC.end();
     }
     _mounted = false;
@@ -70,7 +72,7 @@ public:
 
   uint64_t totalBytes() const {
     if (!_mounted) return 0;
-    if (_cfg.backend == bpadStorageBackend::SD_MMC_4Wire) {
+    if (_cfg.backend == StorageBackend::SD_MMC_4Wire) {
       return SD_MMC.totalBytes();
     }
     return 0;
@@ -78,7 +80,7 @@ public:
 
   uint64_t usedBytes() const {
     if (!_mounted) return 0;
-    if (_cfg.backend == bpadStorageBackend::SD_MMC_4Wire) {
+    if (_cfg.backend == StorageBackend::SD_MMC_4Wire) {
       return SD_MMC.usedBytes();
     }
     return 0;
@@ -131,9 +133,11 @@ public:
     return SD_MMC.mkdir(normalizePath(path));
   }
 
-  const bpadStorageConfig& config() const { return _cfg; }
+  const StorageConfig& config() const { return _cfg; }
 
 private:
-  bpadStorageConfig _cfg;
+  StorageConfig _cfg;
   bool _mounted = false;
 };
+
+} // namespace bpad

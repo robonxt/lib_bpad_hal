@@ -20,18 +20,20 @@
 #include "soc/gpio_sig_map.h"
 #endif
 
-class bpadDisplay {
+namespace bpad {
+
+class Display {
 public:
-  explicit bpadDisplay(const bpadDisplayConfig& config = bpadDisplayConfig())
+  explicit Display(const DisplayConfig& config = DisplayConfig())
     : _cfg(config) {}
 
-  void select(const bpadDisplayConfig& config) {
+  void select(const DisplayConfig& config) {
     _cfg = config;
   }
 
   bool begin() {
 #if defined(ESP_PLATFORM)
-    if (_cfg.backend == bpadDisplayBackend::ST77916_QSPI) {
+    if (_cfg.backend == DisplayBackend::ST77916_QSPI) {
       // 1. Release JTAG multiplexing so GPIO 39, 40, 41, 42 work as GPIOs
       PIN_FUNC_SELECT(IO_MUX_GPIO39_REG, PIN_FUNC_GPIO);
       PIN_FUNC_SELECT(IO_MUX_GPIO40_REG, PIN_FUNC_GPIO);
@@ -229,7 +231,7 @@ public:
 #endif
 
 private:
-  bpadDisplayConfig _cfg;
+  DisplayConfig _cfg;
   bool _ready = false;
   uint8_t _brightness = 130;
 #if defined(ESP_PLATFORM)
@@ -237,3 +239,5 @@ private:
   esp_lcd_panel_io_handle_t _io_handle = NULL;
 #endif
 };
+
+} // namespace bpad
