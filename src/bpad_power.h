@@ -137,18 +137,6 @@ public:
     }
   }
 
-  // --- IP5306 Keep-Alive Pulse ---
-  // In the IP5306 datasheet, a short LOW pulse (50-100ms) on the KEY pin emulates
-  // a button click, resetting the internal 32-second light-load shutdown timer.
-  void keepAlive() {
-    if (_cfg.pin < 0) return;
-    pinMode(_cfg.pin, OUTPUT);
-    digitalWrite(_cfg.pin, LOW);
-    delay(60);
-    digitalWrite(_cfg.pin, HIGH);
-    pinMode(_cfg.pin, INPUT_PULLUP);
-  }
-
   // --- IP5306 Software Power-Off ---
   // In the IP5306 datasheet, double-clicking the KEY pin turns OFF the 5V boost converter.
   // We pulse GPIO 21 LOW twice to trigger full hardware power cut.
