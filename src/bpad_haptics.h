@@ -79,8 +79,8 @@ public:
     return false;
   }
 
-  // --- Fast Multi-Channel Update (MCP4728 Fast Write Command) ---
-  // Transmits all 4 channel levels in a single contiguous I2C burst (reduces I2C packets by 75%)
+  // --- Multi-Channel Update (MCP4728 Multi-Write Command 0x40) ---
+  // Transmits all 4 channel levels starting at Channel A with UDAC=0 (immediate update)
   void updateAllMotors(uint16_t m0, uint16_t m1, uint16_t m2, uint16_t m3) {
     if (!_ready) return;
     _strengths[0] = m0;
@@ -90,13 +90,13 @@ public:
 
     if (_cfg.backend == HapticsBackend::MCP4728_DAC && _wire) {
       _wire->beginTransmission(_cfg.mcp4728Address);
-      // Fast Write command: bits[7:3] = 00000, bit[2:1] = DAC channel, bit[0] = UDAC
-      // Consecutive 2-byte pairs automatically write Ch0, Ch1, Ch2, Ch3
+      // Multi-Write command byte: 0x40 (Bits[7:5]=010 Multi-Write, Bits[4:3]=00 input reg, Bits[2:1]=00 Ch A, Bit[0]=0 UDAC immediate)
+      _wire->write(0x40);
       for (uint8_t i = 0; i < 4; i++) {
-        uint8_t ch = _cfg.mcp4728Channels[i];
-        if (ch == 0xFF) ch = i;
         uint16_t val = constrain(_strengths[i], 0, 4095);
-        _wire->write(((ch & 0x03) << 1) | ((val >> 8) & 0x0F));
+        // Byte 1: VREF(0), PD(00), GAIN(0), D11..D8
+        _wire->write((val >> 8) & 0x0F);
+        // Byte 2: D7..D0
         _wire->write(val & 0xFF);
       }
       _wire->endTransmission();
@@ -187,10 +187,11 @@ public:
   }
 
   void stopAll() {
+    for (uint8_t i = 0; i < 4; i++) {
+      _active[i] = false;
+      _strengths[i] = 0;
+    }
     if (_cfg.backend == HapticsBackend::MCP4728_DAC && _wire && _ready) {
-      for (uint8_t i = 0; i < 4; i++) {
-        _active[i] = false;
-      }
       updateAllMotors(0, 0, 0, 0);
     } else {
       for (uint8_t i = 0; i < 4; i++) {
