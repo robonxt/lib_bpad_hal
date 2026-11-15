@@ -3,6 +3,8 @@
 Hardware Abstraction Layer for bpad 185 and next-generation bpad hardware. 
 Built natively for **ESP32 Arduino Core 3.x+ / ESP-IDF 5.x** using clean C++ namespaces (`bpad::`).
 
+> **Architectural Specification & Contracts**: For detailed subsystem boundaries, shared I2C bus rules, and the contract between HAL and the OS audio/graphics engine, see [**HAL_SPECIFICATION.md**](HAL_SPECIFICATION.md).
+
 ## Quick Start
 
 ```cpp
