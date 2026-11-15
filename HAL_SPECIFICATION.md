@@ -1,85 +1,81 @@
-# bpad_hal Architecture & Specification Contract
+# bpad_hal Hardware Specification & Driver Contracts
 
-Living hardware abstraction specification for `bpad_hal` across bpad revisions (bpad 185 V1 and upcoming prototype spins).
+Authoritative hardware driver specification, capabilities, and interface contracts for `bpad_hal`.
 
 ---
 
-## 1. System Philosophy & Architectural Boundary
+## 1. HAL Scope & Design Guarantees
 
-`bpad_hal` is strictly a **hardware driver layer** for custom bpad board silicon and pin peripherals. It is **not** an application framework or an operating system.
+`bpad_hal` is strictly the **hardware driver layer** for custom bpad board silicon and pin peripherals.
 
-### HAL Responsibility (What HAL Owns)
-* Low-level register configuration, pin initialization, and bus transactions.
+### Capabilities Provided
+* Direct hardware initialization, register configuration, and peripheral pin routing.
 * Hardware power-sequencing (anti-pop amplifier gating, DAC power-down, display reset/TE).
 * Board configuration manifests (`bpad::Config`) defining pin mappings, I2C addresses, and hardware capabilities.
-* Hardware diagnostics, bring-up tests, and single-peripheral example sketches (`examples/`).
-* **Zero FreeRTOS locks / Zero RTOS dependencies**: HAL methods are non-blocking, fast, and thread-neutral.
+* Diagnostic examples and peripheral verification test sketches (`examples/`).
+* Lock-free, non-blocking C++ API in `namespace bpad`.
 
-### OS Responsibility (What OS Owns)
-* FreeRTOS tasks, scheduling, Core 0 vs Core 1 assignment, and thread synchronization.
-* Shared I2C bus concurrency arbitration (OS holds the `i2cMutex` before calling HAL I2C drivers).
-* Polyphonic sound synthesis, audio mixing, WAV/PCM streaming, and chiptune sequencers.
-* Circular UI rendering, scene graphs, touch gesture arbitration, and chord math.
-* Game engines, Lua cartridge runtimes (`.LOOP`), and file asset loading.
+### Thread-Safety & Concurrency Model
+* **HAL drivers contain zero internal mutexes or locks.**
+* All HAL driver calls are lightweight and return immediately without thread-blocking.
+* If a caller accesses HAL I2C drivers across multiple concurrent threads or tasks, **the caller is responsible for serializing access to the shared bus**.
 
 ---
 
-## 2. Shared I2C Bus Architecture
+## 2. Shared I2C Bus & Concurrency Model
 
 All I2C silicon on current bpad hardware shares **one physical bus** (`SDA = GPIO 18`, `SCL = GPIO 17`):
 
-| Device | Address | Function | Speed Capability |
+| Device | Address | Function | Bus Clock Limit |
 | :--- | :--- | :--- | :--- |
 | **CST816S** | `0x15` | Capacitive Touch Controller | 400 kHz (Datasheet max) |
 | **MCP4728** | `0x60` | Quad 12-bit DAC (Haptics X-Array) | Up to 3.4 MHz (High-Speed) |
 | **MCP4725** | `0x61` | Single 12-bit DAC (Audio) | Up to 3.4 MHz (High-Speed) |
 | **ICM-42607-P**| `0x69` | 6-Axis Motion Sensor (Accel/Gyro) | Up to 1.0 MHz (Fast-Mode+) |
 
-### Bus Rules for OS Developers
-1. **Clock Rate**: Default is **400 kHz** (`bpad::I2CConfig::clock = 400000`). This is the safe limit set by the CST816S touch controller. Do not switch clock rates dynamically on a shared multi-threaded bus.
-2. **Concurrency**: HAL drivers contain **zero internal mutexes**. If multiple threads access I2C (e.g., Core 0 Audio task vs Core 1 Touch loop), **the OS must wrap calls in an external mutex** (`xSemaphoreTake` / `xSemaphoreGive`).
+### Bus Specifications
+1. **Clock Rate**: Default is **400 kHz** (`bpad::I2CConfig::clock = 400000`), bounded by the CST816S touch controller limit.
+2. **Serialization**: Because HAL drivers do not lock the bus internally, concurrent multi-task callers must synchronize access before calling I2C-backed HAL methods.
 
 ---
 
-## 3. Subsystem Specifications & Contracts
+## 3. Subsystem Driver Specifications
 
 ### A. Audio (`bpad::Audio`)
 * **Hardware**: MCP4725 I2C DAC (`0x61`) + PAM8302 2.5W Class-D mono amplifier (`GPIO 13` power gate).
-* **Role of `playTone()`**:
-  - `playTone()` is a **monophonic hardware diagnostic beeper**.
-  - Intended for: Hardware bring-up, standalone tests, and simple UI clicks.
-  - Features: Automatic 5ms attack / 8ms release envelope, continuous phase tracking on chained notes, and catch-up burst clamping.
-* **Role of `writeSample()` / `writeSampleDirect()`**:
-  - **The official public API for OS audio engines.**
-  - If the OS runs a multi-channel synthesizer or PCM stream on Core 0, bypass `Audio::update()` completely and feed 12-bit samples directly via `writeSample()`.
-* **Hardware Reality of V1.0 Prototype Audio**:
-  - Streaming real-time audio points over a shared 400 kHz I2C bus into an unfiltered Class-D amp has physical limitations (sampling jitter, bus contention, and lack of an analog low-pass reconstruction filter).
-  - *Do not expect 16-bit console-grade chiptune synthesis from an I2C voltage DAC.*
-* **Upcoming Hardware Migration**:
-  - Chris's next prototype spin completely replaces the MCP4725 with the **NS4168 I2S digital audio codec + digital mic**.
-  - Audio will stream over dedicated ESP32 hardware DMA (zero I2C bus traffic, 16-bit / 44.1 kHz).
-  - `bpad_hal` will update the internal audio backend to I2S under the hood; the OS public interface will remain clean and stable.
+* **Capabilities**:
+  - [`enableAmp(bool)`](src/bpad_audio.h): Controls the `GPIO 13` amp power rail with built-in anti-pop sequencing (biases DAC to mid-rail 2048 before unmuting; mutes amp before DAC power-down).
+  - [`writeSampleDirect(uint16_t)`](src/bpad_audio.h): Direct, unscaled 12-bit sample write (0..4095) to MCP4725 in Fast Mode.
+  - [`writeSample(uint16_t)`](src/bpad_audio.h): Writes a 12-bit sample centered at mid-rail (2048) scaled by driver volume level (`0..3`).
+  - [`playTone(freqHz, durationMs, wave)`](src/bpad_audio.h): Built-in single-voice hardware bring-up / diagnostic tone generator.
+    - Default waveform: `Waveform::Triangle` (cleanest acoustic profile on micro-speaker).
+    - Features: Automatic 5ms attack / 8ms release envelope, continuous phase tracking across chained calls, and catch-up burst clamping.
+  - [`setSampleRate(uint32_t)`](src/bpad_audio.h) / [`setMaxSwing(uint16_t)`](src/bpad_audio.h): Runtime tuning for sample pacing (default 8000 Hz) and peak amplitude ceiling (default 1400 / 0..2047).
+* **Hardware Constraints**:
+  - The MCP4725 is a general-purpose I2C voltage DAC. Streaming real-time waveform points over a shared 400 kHz serial bus has physical throughput and jitter limits.
+  - The upcoming hardware revision migrates to the **NS4168 I2S digital codec** (DMA-driven, zero I2C traffic). `bpad_hal` will update its backend to I2S while preserving stable driver interfaces.
 
 ### B. Display (`bpad::Display`)
 * **Hardware**: ST77916 QSPI 360x360 circular panel.
 * **Pins**: `BL=39`, `CS=14`, `RST=42`, `DC=40`, `SCK=6`, `D0=5`, `D1=4`, `D2=2`, `D3=1`, `TE=41`.
-* **Tearing Effect (TE / VSync)**: Connected to `GPIO 41`. Generates falling-edge interrupts at ~61 Hz for tearing-free DMA buffer flushes.
-* **Backlight**: Hardware PWM on `GPIO 39` via LEDC timer.
+* **Capabilities**:
+  - Hardware initialization and panel reset.
+  - Backlight PWM brightness control via LEDC on `GPIO 39`.
+  - Tearing Effect (TE / VSync) interrupt on `GPIO 41` (~61 Hz) for tearing-free frame synchronization.
 
 ### C. Touch (`bpad::Touch`)
 * **Hardware**: CST816S capacitive touch controller at I2C address `0x15`.
-* **Interrupt**: `GPIO 38` (Falling edge when finger touches or moves).
-* **Driver Contract**: Provides raw coordinates `(x, y)`, press state, and hardware gesture decoding (`SwipeUp`, `SwipeDown`, `SwipeLeft`, `SwipeRight`, `SingleClick`, `LongPress`).
+* **Interrupt**: `GPIO 38` (Falling edge on touch detection).
+* **Capabilities**:
+  - Point coordinates `(x, y)` and touch state query.
+  - Hardware gesture reporting (`SwipeUp`, `SwipeDown`, `SwipeLeft`, `SwipeRight`, `SingleClick`, `LongPress`).
 
 ### D. Power & Button (`bpad::Power`)
 * **Hardware**: Tactile switch SW3 & IP5306 PMIC KEY line on `GPIO 21`.
-* **Features**:
-  - Software debouncing (click vs long-press hold).
-  - Hardware double-pulse power-off sequence (`powerOff()`) to command IP5306 to kill the 5V boost rail.
-  - Deep-sleep wake on `GPIO 21` low-level interrupt.
-* **Note on IP5306 Standby**:
-  - The IP5306 cuts 5V power if load current stays $< 45\text{ mA}$ for 32 seconds.
-  - Keep-alive pulse was removed from HAL per project direction. The OS sleep policy should maintain a minimal dim state (`dimmedDuty = 15`) rather than hard display shut-off on V1.0 prototypes.
+* **Capabilities**:
+  - Debounced input processing (single-click and long-press hold events).
+  - [`powerOff()`](src/bpad_power.h): Sends hardware double-pulse sequence on GPIO 21 to trigger IP5306 5V rail shutdown.
+  - [`deepSleep()`](src/bpad_power.h): Configures GPIO 21 as low-level wake source and enters ESP32 deep sleep.
 
 ### E. Haptics (`bpad::Haptics`)
 * **Hardware**: MCP4728 quad 12-bit DAC at I2C address `0x60`, driving 4 independent ERM vibration motors in an X-layout.
@@ -88,18 +84,22 @@ All I2C silicon on current bpad hardware shares **one physical bus** (`SDA = GPI
   - Ch 1: Bottom-Right (Black wire)
   - Ch 2: Top-Left (Red wire)
   - Ch 3: Top-Right (Blue wire)
-* **Performance**: Uses MCP4728 Multi-Write command `0x40` to update all 4 channels in a single 9-byte I2C transaction.
+* **Capabilities**:
+  - Individual motor drive (0..4095).
+  - Multi-motor synchronous update using MCP4728 Multi-Write command `0x40` (single 9-byte I2C transaction).
 
 ### F. IMU (`bpad::IMU`)
 * **Hardware**: ICM-42607-P 6-axis accelerometer & gyroscope at I2C address `0x69`.
-* **Mounting**: Mounted with a **-90° PCB rotation offset**.
-* **Driver Contract**: Returns scaled $\pm 2\text{g}$ linear acceleration ($g$) and $\pm 2000^\circ/\text{s}$ angular velocity ($^\circ/\text{s}$) with the -90° rotation automatically corrected.
+* **Capabilities**:
+  - Scaled $\pm 2\text{g}$ linear acceleration ($g$) and $\pm 2000^\circ/\text{s}$ angular velocity ($^\circ/\text{s}$).
+  - Hardware mounting rotation (-90° PCB offset) automatically compensated in driver reads.
 
 ### G. Storage (`bpad::Storage`)
-* **Hardware**: XinYY SD32G SD-NAND on the 4-wire `SD_MMC` peripheral slot.
+* **Hardware**: XinYY SD32G SD-NAND on 4-wire `SD_MMC` peripheral slot.
 * **Pins**: `CLK=9`, `CMD=12`, `D0=11`, `D1=10`, `D2=7`, `D3=8`.
-* **Driver Contract**: Mounts cleanly to standard `<FS.h>` via `storage.mount("/sd")`.
-* **USB Mass Storage Mode**: During USB MSC mode, all FreeRTOS tasks and sensor polling must halt; HAL hands raw sector control of the SD-NAND to the PC USB host.
+* **Capabilities**:
+  - Mounts SD-NAND filesystem to standard `<FS.h>` via `storage.mount("/sd")`.
+  - Raw sector access interface for USB Mass Storage mode.
 
 ---
 
