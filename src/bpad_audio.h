@@ -25,14 +25,18 @@ enum class Waveform : uint8_t {
 class Audio {
 public:
   explicit Audio(const AudioConfig& config = AudioConfig())
-    : _cfg(config) {}
+    : _cfg(config) {
+    setSampleRate(_cfg.sampleRateHz);
+  }
 
   void select(const AudioConfig& config) {
     _cfg = config;
+    setSampleRate(_cfg.sampleRateHz);
   }
 
   bool begin(TwoWire& wire = Wire) {
     _wire = &wire;
+    setSampleRate(_cfg.sampleRateHz);
     if (_cfg.support == Support::NotPresent || _cfg.backend == AudioBackend::None) {
       return false;
     }
@@ -140,6 +144,27 @@ public:
     writeSampleDirect((uint16_t)constrain(scaled, 0, 4095));
   }
 
+  void setSampleRate(uint32_t hz) {
+    _cfg.sampleRateHz = constrain(hz, 2000UL, 16000UL);
+    _sampleRateHz = _cfg.sampleRateHz;
+    _sampleIntervalUs = 1000000UL / _sampleRateHz;
+    if (_isPlayingTone && _currentFreqHz > 0) {
+      _phaseIncrement = (uint32_t)(((uint64_t)_currentFreqHz << 16) / _sampleRateHz);
+    }
+  }
+
+  uint32_t getSampleRate() const {
+    return _sampleRateHz;
+  }
+
+  void setMaxSwing(uint16_t swing) {
+    _cfg.maxSwing = (swing <= 2047) ? swing : 2047;
+  }
+
+  uint16_t getMaxSwing() const {
+    return _cfg.maxSwing;
+  }
+
   void setWaveform(Waveform wave) {
     _waveform = wave;
   }
@@ -155,53 +180,93 @@ public:
       return;
     }
 
+    uint32_t nowMs = millis();
+    bool wasPlaying = _isPlayingTone;
+
     _waveform = wave;
+    _currentFreqHz = freqHz;
     if (!_ampEnabled) {
       enableAmp(true);
     }
 
-    _sampleRateHz = 8000;
-    _sampleIntervalUs = 1000000 / _sampleRateHz; // 125 us pacing
     _phaseIncrement = (uint32_t)(((uint64_t)freqHz << 16) / _sampleRateHz);
-    _phaseAccumulator = 0;
 
-    _toneEndMs = (durationMs > 0) ? (millis() + durationMs) : 0;
+    if (!wasPlaying) {
+      _phaseAccumulator = 0;
+      _attackMs = (durationMs > 0 && durationMs < 20) ? (uint16_t)(durationMs / 4) : 5;
+      _nextSampleUs = micros();
+    } else {
+      // Keep phase continuous when chaining notes (eliminates inter-note clicks)
+      _attackMs = 0;
+    }
+
+    if (durationMs > 0) {
+      _releaseMs = (durationMs < 24) ? (uint16_t)(durationMs / 4) : 8;
+      _toneEndMs = nowMs + durationMs;
+    } else {
+      _releaseMs = 0;
+      _toneEndMs = 0;
+    }
+
+    _toneStartMs = nowMs;
     _isPlayingTone = true;
-    _nextSampleUs = micros();
   }
 
   // Immediately shuts off DAC and amplifier rail (zero idle noise)
   void stop() {
     _isPlayingTone = false;
     _toneEndMs = 0;
+    _currentFreqHz = 0;
     enableAmp(false); // Shuts off amplifier power rail cleanly with anti-pop sequence
   }
 
   void update() {
     if (!_isPlayingTone || !_ready) return;
 
-    if (_toneEndMs > 0 && millis() >= _toneEndMs) {
+    uint32_t nowMs = millis();
+    if (_toneEndMs > 0 && (int32_t)(nowMs - _toneEndMs) >= 0) {
       stop();
       return;
     }
 
     uint32_t nowUs = micros();
     if ((int32_t)(nowUs - _nextSampleUs) >= 0) {
-      _nextSampleUs += _sampleIntervalUs;
+      // Single-step catch-up clamp: drop missed ticks to prevent I2C burst saturation
+      if ((int32_t)(nowUs - _nextSampleUs) >= (int32_t)(_sampleIntervalUs * 2)) {
+        _nextSampleUs = nowUs + _sampleIntervalUs;
+      } else {
+        _nextSampleUs += _sampleIntervalUs;
+      }
 
       _phaseAccumulator += _phaseIncrement;
       uint16_t phase16 = _phaseAccumulator & 0xFFFF;
 
+      // Attack / release envelope (0..256 fixed point) to eliminate click/pop artifacts
+      int32_t env256 = 256;
+      if (_attackMs > 0) {
+        uint32_t elapsed = nowMs - _toneStartMs;
+        if (elapsed < _attackMs) {
+          env256 = (int32_t)((elapsed << 8) / _attackMs);
+        }
+      }
+      if (_releaseMs > 0 && _toneEndMs > 0) {
+        int32_t remaining = (int32_t)(_toneEndMs - nowMs);
+        if (remaining > 0 && remaining < (int32_t)_releaseMs) {
+          int32_t rel256 = (remaining << 8) / _releaseMs;
+          if (rel256 < env256) env256 = rel256;
+        }
+      }
+
+      int32_t maxAmp = ((int32_t)(_cfg.maxSwing * _volMultiplier) * env256) >> 8;
       int32_t sample = 2048;
-      int32_t maxAmp = (int32_t)(1400.0f * _volMultiplier);
 
       switch (_waveform) {
         case Waveform::Triangle: // Cleanest on micro-speaker
         default:
           if (phase16 < 32768) {
-            sample = (2048 - maxAmp) + (int32_t)((int64_t)maxAmp * 2 * phase16 / 32768);
+            sample = (2048 - maxAmp) + ((maxAmp * (int32_t)phase16) >> 14);
           } else {
-            sample = (2048 + maxAmp) - (int32_t)((int64_t)maxAmp * 2 * (phase16 - 32768) / 32768);
+            sample = (2048 + maxAmp) - ((maxAmp * (int32_t)(phase16 - 32768)) >> 14);
           }
           break;
 
@@ -211,7 +276,7 @@ public:
 
         case Waveform::Sine: {
           uint8_t idx = (phase16 >> 11) & 0x1F;
-          sample = 2048 + ((int32_t)SINE_32[idx] * maxAmp / 1000);
+          sample = 2048 + (((int32_t)SINE_32[idx] * maxAmp) / 1000);
           break;
         }
       }
@@ -239,10 +304,14 @@ private:
   bool _isPlayingTone = false;
   uint32_t _sampleRateHz = 8000;
   uint32_t _sampleIntervalUs = 125;
+  uint32_t _currentFreqHz = 0;
   uint32_t _phaseIncrement = 0;
   uint32_t _phaseAccumulator = 0;
   uint32_t _nextSampleUs = 0;
+  uint32_t _toneStartMs = 0;
   uint32_t _toneEndMs = 0;
+  uint16_t _attackMs = 0;
+  uint16_t _releaseMs = 0;
 
   static constexpr int16_t SINE_32[32] = {
        0,  195,  383,  556,  707,  831,  924,  981,

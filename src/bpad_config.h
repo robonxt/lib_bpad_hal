@@ -96,6 +96,8 @@ struct AudioConfig {
   uint8_t ampPower = 13;
   uint8_t mcp4725Address = 0x61;
   uint8_t volumeLevels[4] = {0, 5, 9, 12};
+  uint32_t sampleRateHz = 8000; // Kept at 8 kHz for clean acoustic quality
+  uint16_t maxSwing = 1400;     // Benchmarked half-swing from 2048 mid-rail (0..2047)
 };
 
 struct HapticsConfig {
