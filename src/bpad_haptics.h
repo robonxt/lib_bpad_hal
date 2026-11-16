@@ -26,11 +26,6 @@ enum class Motor : uint8_t {
   TopRight    = 3  // Channel 3 (Blue wires)
 };
 
-constexpr uint8_t MOTOR_BL = 0;
-constexpr uint8_t MOTOR_BR = 1;
-constexpr uint8_t MOTOR_TL = 2;
-constexpr uint8_t MOTOR_TR = 3;
-
 inline const char* motorName(Motor motor) {
   switch (motor) {
     case Motor::BottomLeft:  return "Bottom-Left (White)";

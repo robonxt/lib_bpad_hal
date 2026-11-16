@@ -175,17 +175,8 @@ public:
     return td;
   }
 
-  // Classic getTouch signature matching CST816D driver API
-  bool getTouch(uint16_t* x, uint16_t* y, uint8_t* gesture = nullptr) {
-    TouchData td = read();
-    if (x) *x = td.x;
-    if (y) *y = td.y;
-    if (gesture) *gesture = td.rawGesture;
-    return td.pressed;
-  }
-
-  // Overload returning normalized Gesture enum
-  bool getTouch(uint16_t* x, uint16_t* y, Gesture* gesture) {
+  // Get touch coordinates and normalized gesture
+  bool getTouch(uint16_t* x, uint16_t* y, Gesture* gesture = nullptr) {
     TouchData td = read();
     if (x) *x = td.x;
     if (y) *y = td.y;

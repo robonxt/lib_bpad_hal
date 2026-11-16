@@ -46,7 +46,7 @@ void loop() {
   if (pwr.isPressed() && (pwr.pressDurationMs() > 3000)) {
     Serial.println("[POWER] 3-second hold! Entering Deep Sleep now...");
     delay(200);
-    pwr.sleep();
+    pwr.deepSleep();
   }
 
   // Serial command for IP5306 PMIC shutdown

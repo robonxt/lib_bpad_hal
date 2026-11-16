@@ -178,10 +178,6 @@ public:
 #endif
   }
 
-  void sleep() {
-    deepSleep();
-  }
-
   bool isReady() const { return _ready; }
   const ButtonConfig& config() const { return _cfg; }
 
