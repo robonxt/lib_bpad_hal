@@ -98,8 +98,9 @@ All I2C silicon on current bpad hardware shares **one physical bus** (`SDA = GPI
 * **Hardware**: XinYY SD32G SD-NAND on 4-wire `SD_MMC` peripheral slot.
 * **Pins**: `CLK=9`, `CMD=12`, `D0=11`, `D1=10`, `D2=7`, `D3=8`.
 * **Capabilities**:
-  - Mounts SD-NAND filesystem to standard `<FS.h>` via `storage.mount("/sd")`.
-  - Raw sector access interface for USB Mass Storage mode.
+  - Configures maximum drive capability (`GPIO_DRIVE_CAP_3`) on `CLK`, `CMD`, and all data lines (`D0`–`D3`) for capacitive bus stabilization during high-throughput burst transfers.
+  - Mounts SD-NAND filesystem to standard `<FS.h>` via `storage.mount("/sd")` with path normalization.
+  - Provides block-level LBA sector read/write interface (`readSector()`, `readSectors()`, `writeSector()`, `writeSectors()`, `sectorCount()`, `sectorSize()`) for USB Mass Storage Class (MSC) operation.
 
 ---
 

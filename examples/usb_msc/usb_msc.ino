@@ -12,10 +12,10 @@
 #include <Arduino.h>
 #include <USB.h>
 #include <USBMSC.h>
-#include <SD_MMC.h>
 #include <bpad_hal.h>
 
 const bpad::Config hw = bpad::Config::defaultBoard();
+bpad::Storage storage(hw.storage);
 
 USBMSC msc;
 const char* configPath = "/usb_msc_config.txt";
@@ -23,20 +23,16 @@ const char* configPath = "/usb_msc_config.txt";
 static int32_t onRead(uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize) {
   (void)offset;
   uint8_t* buf = (uint8_t*)buffer;
-  uint32_t sectors = bufsize / 512;
-  for (uint32_t i = 0; i < sectors; i++) {
-    if (!SD_MMC.readRAW(buf + (i * 512), lba + i)) return -1;
-  }
+  uint32_t sectors = bufsize / storage.sectorSize();
+  if (!storage.readSectors(buf, lba, sectors)) return -1;
   return (int32_t)bufsize;
 }
 
 static int32_t onWrite(uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize) {
   (void)offset;
   uint8_t* buf = (uint8_t*)buffer;
-  uint32_t sectors = bufsize / 512;
-  for (uint32_t i = 0; i < sectors; i++) {
-    if (!SD_MMC.writeRAW(buf + (i * 512), lba + i)) return -1;
-  }
+  uint32_t sectors = bufsize / storage.sectorSize();
+  if (!storage.writeSectors(buf, lba, sectors)) return -1;
   return (int32_t)bufsize;
 }
 
@@ -46,8 +42,8 @@ static bool onStartStop(uint8_t power_condition, bool start, bool load_eject) {
 
 // Writes USB_MSC state to /usb_msc_config.txt
 void setMscConfigFile(bool enable) {
-  SD_MMC.remove(configPath);
-  File file = SD_MMC.open(configPath, FILE_WRITE);
+  storage.remove(configPath);
+  File file = storage.open(configPath, FILE_WRITE);
 
   if (file) {
     file.println("# =============================================================================");
@@ -67,7 +63,7 @@ void setMscConfigFile(bool enable) {
 
 // Reads usb_msc_config.txt on storage root. Parses non-comment lines.
 bool checkMscConfigEnabled() {
-  File file = SD_MMC.open(configPath, FILE_READ);
+  File file = storage.open(configPath, FILE_READ);
 
   if (!file) {
     setMscConfigFile(true);
@@ -136,19 +132,14 @@ void setup() {
 
   Serial.printf("[usb_msc] board=%s  storage=%s\n", hw.name, bpad::storageBackendName(hw.storage.backend));
 
-  uint32_t sectorCount = 0;
-
-  SD_MMC.setPins(hw.storage.sdmmcClk, hw.storage.sdmmcCmd,
-                 hw.storage.sdmmcD0,  hw.storage.sdmmcD1,
-                 hw.storage.sdmmcD2,  hw.storage.sdmmcD3);
-
-  if (!SD_MMC.begin("/sdcard", false, false, 20000)) {
-    Serial.println("[usb_msc] SD_MMC mount FAILED.");
+  if (!storage.mount("/sdcard", false)) {
+    Serial.println("[usb_msc] Storage mount FAILED.");
     while (1) delay(1000);
   }
-  sectorCount = SD_MMC.numSectors();
+  uint32_t sectorCount = storage.sectorCount();
+  uint16_t sectorSize = storage.sectorSize();
   Serial.printf("[usb_msc] Storage mounted. sectors=%u (%llu MB)\n",
-                sectorCount, (uint64_t)sectorCount * 512 / (1024 * 1024));
+                sectorCount, (uint64_t)sectorCount * sectorSize / (1024 * 1024));
 
   // Check if USB MSC is enabled in /usb_msc_config.txt
   bool mscEnabled = checkMscConfigEnabled();
@@ -171,7 +162,7 @@ void setup() {
   msc.onRead(onRead);
   msc.onWrite(onWrite);
   msc.mediaPresent(true);
-  msc.begin(sectorCount, 512);
+  msc.begin(sectorCount, sectorSize);
 
   USB.begin();
 

@@ -45,6 +45,10 @@ public:
 
       gpio_set_drive_capability((gpio_num_t)_cfg.sdmmcClk, GPIO_DRIVE_CAP_3);
       gpio_set_drive_capability((gpio_num_t)_cfg.sdmmcCmd, GPIO_DRIVE_CAP_3);
+      gpio_set_drive_capability((gpio_num_t)_cfg.sdmmcD0,  GPIO_DRIVE_CAP_3);
+      gpio_set_drive_capability((gpio_num_t)_cfg.sdmmcD1,  GPIO_DRIVE_CAP_3);
+      gpio_set_drive_capability((gpio_num_t)_cfg.sdmmcD2,  GPIO_DRIVE_CAP_3);
+      gpio_set_drive_capability((gpio_num_t)_cfg.sdmmcD3,  GPIO_DRIVE_CAP_3);
 
       SD_MMC.setPins(_cfg.sdmmcClk, _cfg.sdmmcCmd, _cfg.sdmmcD0, _cfg.sdmmcD1, _cfg.sdmmcD2, _cfg.sdmmcD3);
 
@@ -104,6 +108,47 @@ public:
   }
 
   fs::FS& fs() { return SD_MMC; }
+
+  // --- Block-Level Sector I/O (Required for USB MSC) ---
+  bool readSector(uint8_t* buffer, uint32_t sector) {
+    if (!_mounted) return false;
+    return SD_MMC.readRAW(buffer, sector);
+  }
+
+  bool readSectors(uint8_t* buffer, uint32_t startSector, uint32_t count) {
+    if (!_mounted) return false;
+    uint32_t sz = sectorSize();
+    if (sz == 0) sz = 512;
+    for (uint32_t i = 0; i < count; i++) {
+      if (!SD_MMC.readRAW(buffer + (i * sz), startSector + i)) return false;
+    }
+    return true;
+  }
+
+  bool writeSector(const uint8_t* buffer, uint32_t sector) {
+    if (!_mounted) return false;
+    return SD_MMC.writeRAW(const_cast<uint8_t*>(buffer), sector);
+  }
+
+  bool writeSectors(const uint8_t* buffer, uint32_t startSector, uint32_t count) {
+    if (!_mounted) return false;
+    uint32_t sz = sectorSize();
+    if (sz == 0) sz = 512;
+    for (uint32_t i = 0; i < count; i++) {
+      if (!SD_MMC.writeRAW(const_cast<uint8_t*>(buffer) + (i * sz), startSector + i)) return false;
+    }
+    return true;
+  }
+
+  uint32_t sectorCount() const {
+    if (!_mounted) return 0;
+    return (uint32_t)SD_MMC.numSectors();
+  }
+
+  uint16_t sectorSize() const {
+    if (!_mounted) return 0;
+    return (uint16_t)SD_MMC.sectorSize();
+  }
 
   // Normalizes path so callers can use "/file.txt" or "/sd/file.txt" interchangeably
   static const char* normalizePath(const char* path) {
