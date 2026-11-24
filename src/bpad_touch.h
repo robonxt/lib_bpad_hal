@@ -127,6 +127,10 @@ public:
     _wire->beginTransmission((uint8_t)_cfg.address);
     _wire->write(0x01);
     if (_wire->endTransmission(false) != 0 || _wire->requestFrom((uint8_t)_cfg.address, (uint8_t)6) != 6) {
+      if (_i2cFailCount < 2) {
+        _i2cFailCount++;
+        return _lastData;
+      }
       if (_tracking) {
         td.pressed = false;
         td.rawX = _lastRawX;
@@ -137,6 +141,7 @@ public:
       }
       return _lastData;
     }
+    _i2cFailCount = 0;
 
     for (uint8_t i = 0; i < 6; i++) {
       buf[i] = _wire->read();
@@ -148,18 +153,33 @@ public:
     uint16_t rx = ((buf[2] & 0x0F) << 8) | buf[3];
     uint16_t ry = ((buf[4] & 0x0F) << 8) | buf[5];
 
-    // CST816S/CST816D valid press validation:
-    // Fingers > 0, event not LiftUp (event == 1), and coordinates strictly within display bounds.
+    // CST816S/CST816D valid press validation with contact debounce:
     bool validCoordinates = (rx < _width && ry < _height);
-    bool notLiftUp = (event != 1);
-    td.pressed = (fingers > 0 && notLiftUp && validCoordinates);
+    bool isLiftUp = (event == 1);
+    bool rawPressed = (fingers > 0 && !isLiftUp && validCoordinates);
 
-    if (td.pressed) {
+    if (rawPressed) {
+      _releaseDebounceCount = 0;
+      td.pressed = true;
       td.rawX = rx;
       td.rawY = ry;
       _lastRawX = rx;
       _lastRawY = ry;
+    } else if (isLiftUp) {
+      // Hardware explicitly confirmed finger lift
+      _releaseDebounceCount = 0;
+      td.pressed = false;
+      td.rawX = _lastRawX;
+      td.rawY = _lastRawY;
+    } else if (_lastData.pressed && _releaseDebounceCount < 1) {
+      // 1-frame capacitive drop glitch (10ms): maintain pressed state
+      _releaseDebounceCount++;
+      td.pressed = true;
+      td.rawX = _lastRawX;
+      td.rawY = _lastRawY;
     } else {
+      _releaseDebounceCount = 0;
+      td.pressed = false;
       td.rawX = _lastRawX;
       td.rawY = _lastRawY;
     }
@@ -231,6 +251,8 @@ private:
   TwoWire* _wire = nullptr;
   bool _ready = false;
   uint32_t _lastPollMs = 0;
+  uint8_t _i2cFailCount = 0;
+  uint8_t _releaseDebounceCount = 0;
 
   TouchMode _touchMode = TouchMode::NativeHardware;
   uint8_t _lastReportedHwGesture = 0;

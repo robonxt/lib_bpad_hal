@@ -67,8 +67,9 @@ All I2C silicon on current bpad hardware shares **one physical bus** (`SDA = GPI
 * **Hardware**: CST816S capacitive touch controller at I2C address `0x15`.
 * **Interrupt**: `GPIO 38` (Falling edge on touch detection).
 * **Capabilities**:
-  - Point coordinates `(x, y)` and touch state query.
-  - Hardware gesture reporting (`SwipeUp`, `SwipeDown`, `SwipeLeft`, `SwipeRight`, `SingleClick`, `LongPress`).
+  - Point coordinates `(x, y)` and touch state query with 10 ms polling rate clamp.
+  - Signal debouncing: I2C collision fault tolerance (retains tracking over transient single-frame bus arbitration delays) and release debounce (instant hardware `LiftUp` recognition, 1-frame capacitive flutter filter).
+  - Hardware & software gesture reporting (`SwipeUp`, `SwipeDown`, `SwipeLeft`, `SwipeRight`, `Tap`, `DoubleTap`, `LongPress`).
 
 ### D. Power & Button (`bpad::Power`)
 * **Hardware**: Tactile switch SW3 & IP5306 PMIC KEY line on `GPIO 21`.
