@@ -87,7 +87,7 @@ public:
       buscfg.sclk_io_num  = _cfg.sclk;
       buscfg.data2_io_num = _cfg.d2;
       buscfg.data3_io_num = _cfg.d3;
-      buscfg.max_transfer_sz = _cfg.width * _cfg.height * sizeof(uint16_t);
+      buscfg.max_transfer_sz = _cfg.width * 180 * sizeof(uint16_t);
       buscfg.flags = SPICOMMON_BUSFLAG_QUAD;
       esp_err_t err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
       if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
@@ -215,8 +215,12 @@ public:
 
   void drawFrame(const void* color_data) {
 #if defined(ESP_PLATFORM)
-    if (_panel_handle && _ready) {
-      esp_lcd_panel_draw_bitmap(_panel_handle, 0, 0, _cfg.width, _cfg.height, color_data);
+    if (_panel_handle && _ready && color_data) {
+      const uint16_t* px = static_cast<const uint16_t*>(color_data);
+      for (uint16_t y = 0; y < _cfg.height; y += 180) {
+        uint16_t h = (_cfg.height - y < 180) ? (_cfg.height - y) : 180;
+        esp_lcd_panel_draw_bitmap(_panel_handle, 0, y, _cfg.width, y + h, px + (y * _cfg.width));
+      }
     }
 #endif
   }
